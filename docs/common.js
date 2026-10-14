@@ -1,6 +1,7 @@
 firebase.initializeApp(window.FIREBASE_CONFIG);
 const db = firebase.firestore();
 const WAITING_ROOM = window.WAITING_ROOM;
+const BACK_COUNT = window.BACK_COUNT || 3;
 const CALL_TIMEOUT_SEC = window.CALL_TIMEOUT_SEC || 300;
 const DEFAULT_GAP_SEC = window.DEFAULT_GAP_SEC || 180;
 const ALERT_MIN = window.ALERT_MIN || 5;

@@ -31,17 +31,41 @@ body.st-call{background:#d9480f;color:#fff}
 .err{color:var(--bad);font-weight:700;font-size:18px}
 .banner{border-radius:14px;padding:12px 14px;font-weight:800;text-align:center;font-size:18px}
 .banner.test{background:#ffe066;color:#5c4400}
-/* 半券 */
+/* 半券（もぎる前のスライダー） */
 .stub{position:relative;border-radius:16px;background:#fff;border:2px dashed var(--ok);padding:10px}
 .stub.off{border-color:#adb5bd;background:#e9ecef;color:#868e96}
-.tear{--p:0;position:relative;height:64px;border-radius:14px;background:#ebfbee;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.tear{position:relative;height:64px;border-radius:14px;background:#ebfbee;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
 .stub.off .tear{background:#dee2e6}
-.tear-txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ok);font-weight:900;font-size:19px;opacity:calc(1 - var(--p));padding-left:44px}
+.tear-txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ok);font-weight:900;font-size:19px;opacity:calc(1 - var(--p,0));padding-left:44px}
 .stub.off .tear-txt{color:#868e96}
 .tear-h{position:absolute;left:4px;top:4px;width:56px;height:56px;border-radius:12px;background:var(--ok);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;touch-action:none;cursor:grab}
 .stub.off .tear-h{background:#adb5bd;cursor:not-allowed}
-.tear.tearing{animation:tearoff .45s ease-in forwards}
-@keyframes tearoff{to{transform:translateX(120%) rotate(8deg);opacity:0}}
-.stamp{display:inline-block;border:5px solid var(--ok);color:var(--ok);font-weight:900;font-size:34px;padding:4px 20px;border-radius:14px;transform:rotate(-6deg);background:#fff}
-.clock{font-size:36px;font-weight:900;font-variant-numeric:tabular-nums}
+/* チケット */
+@property --p{syntax:'<number>';inherits:true;initial-value:0}
+body.st-call{--pg:#d9480f}body.st-in{--pg:#d3f9d8}
+.tk{--p:0;position:relative;color:var(--fg);filter:drop-shadow(0 6px 12px rgba(0,0,0,.28))}
+.tk.snap{transition:--p .22s}
+.tk-main{position:relative;background:#fff;border-radius:18px 18px 0 0;padding:14px 16px 12px;text-align:center}
+.tk.in .tk-main{border-radius:18px}
+.tk-lab{font-weight:800;color:var(--sub);letter-spacing:.4em;font-size:15px}
+.tk-num{font-size:clamp(84px,28vw,130px);font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums}
+.tk-who{font-size:17px;color:var(--sub);font-weight:700}
+.tk-perf{position:relative;height:0;z-index:2}
+.tk-perf::before{content:"";position:absolute;left:16px;right:16px;top:-1.5px;border-top:3px dashed #adb5bd}
+.tk-perf .n{position:absolute;top:-13px;width:26px;height:26px;border-radius:50%;background:var(--pg)}
+.tk-perf .n.l{left:-13px}.tk-perf .n.r{right:-13px}
+.tk-cut{position:absolute;left:16px;top:-3px;height:6px;width:calc((100% - 32px)*var(--p));background:var(--pg)}
+.tk-stub{background:#fff;border-radius:0 0 18px 18px;padding:14px 12px 12px;transform-origin:100% 0;transform:rotate(calc(var(--p)*-5deg)) translateY(calc(var(--p)*10px))}
+.tk-stub .tear{height:60px}
+.tk.ripped .tk-stub{animation:stubfall .7s cubic-bezier(.5,0,1,.8) forwards;pointer-events:none}
+@keyframes stubfall{from{transform:rotate(-5deg) translateY(10px)}to{transform:translate(60px,640px) rotate(-32deg);opacity:0}}
+.tk.ripped .tk-main{animation:jolt .25s ease-out;-webkit-mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) 50%/18px 100%;mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) 50%/18px 100%;padding-bottom:22px}
+@keyframes jolt{30%{transform:translateY(-5px) rotate(.6deg)}to{transform:none}}
+/* 入室済みのチケット（切り口がギザギザ） */
+.tk-main.cut{-webkit-mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) 50%/18px 100%;mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) 50%/18px 100%;padding-bottom:26px}
+.tk-times{display:flex;justify-content:center;gap:24px;margin-top:8px}
+.tk-times span{display:block;font-size:14px;color:var(--sub);font-weight:700}
+.tk-times b{font-size:26px;font-variant-numeric:tabular-nums}
+.stamp{display:inline-block;border:5px solid var(--ok);color:var(--ok);font-weight:900;font-size:28px;padding:2px 14px;border-radius:12px;transform:rotate(-5deg);margin-bottom:6px}
+.scr{overflow:hidden}
 [hidden]{display:none!important}

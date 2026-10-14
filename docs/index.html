@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="stylesheet" href="customer.css?v=9"></head>
+<title>整理券</title><link rel="stylesheet" href="customer.css?v=10"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=9"></script><script src="common.js?v=9"></script>
+<script src="firebase-config.js?v=10"></script><script src="common.js?v=10"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -32,6 +32,14 @@ function beep(n) {
     o.connect(g); g.connect(actx.destination); o.frequency.value = i % 2 ? 660 : 880; g.gain.value = 0.3;
     const t = actx.currentTime + i * 0.28; o.start(t); o.stop(t + 0.2);
   }
+}
+function rip() {
+  if (!actx) return;
+  const len = Math.floor(actx.sampleRate * 0.4), buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.5) * (0.55 + 0.45 * Math.sin(i / 40));
+  const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  src.buffer = buf; f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 0.7; g.gain.value = 0.9;
+  src.connect(f); f.connect(g); g.connect(actx.destination); src.start();
 }
 const vibrate = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
 function note(title, body) { try { if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body }); } catch (e) {} }
@@ -81,7 +89,7 @@ function leave() { try { localStorage.removeItem(KEY); } catch (e) {} myId = nul
 const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}</div></div>`; };
 const notifyBtn = () => `<button class="btn sub" id="notif">${soundOn ? '🔔 通知オン（タップで音を確認）' : '🔔 通知をオンにする'}</button><div class="small c">iPhoneでは振動しません。この画面を開いたままにしてください。</div>`;
 const cancelBtn = () => '<div class="c"><button class="linkbtn" id="cancel">整理券をキャンセルする</button></div>';
-const stubHtml = (enabled) => `<div class="stub ${enabled ? '' : 'off'}"><div class="tear" id="${enabled ? 'tear' : 'tearOff'}"><div class="tear-txt">${enabled ? '右にスライドして、もぎる' : '呼ばれるまで、もぎれません'}</div><div class="tear-h" ${enabled ? 'id="tearH"' : ''}>✂</div></div></div>`;
+const stubHtml = (enabled) => { const inner = `<div class="tear" id="${enabled ? 'tear' : 'tearOff'}"><div class="tear-txt">${enabled ? '右になぞって、もぎる' : '呼ばれるまで、もぎれません'}</div><div class="tear-h" ${enabled ? 'id="tearH"' : ''}>✂</div></div>`; return enabled ? inner : `<div class="stub off">${inner}</div>`; };
 
 function viewIssue() {
   const wc = sum.waitCount || 0, mins = Math.round(wc * gapSec() / 60);
@@ -108,16 +116,18 @@ function viewTicket() {
   const another = TEST ? '<div class="c"><button class="linkbtn" id="another">別の整理券を発行する（テスト用）</button></div>' : '';
 
   if (me.status === 'called') {
-    return shell('call', `<div class="h1 c">順番が来ました</div>${numBlock('あなたの番号')}
-      <div class="h1 c">入口前の待合スペースへ<br>お越しください</div>
-      <div class="small c">画面をタップすると、音が止まります。</div>`,
-      `<div class="small c">待合スペースに着いたら、下の半券をもぎって、スタッフにこの画面をお見せください。</div>` + stubHtml(true));
+    return shell('call', `<div class="h1 c">順番が来ました</div>
+      <div class="tk call"><div class="tk-main"><div class="tk-lab">整理券</div><div class="tk-num">${me.number}</div><div class="tk-who">${who}</div></div>
+        <div class="tk-perf"><i class="n l"></i><i class="n r"></i><div class="tk-cut"></div></div>
+        <div class="tk-stub">${stubHtml(true)}</div></div>
+      <div class="h1 c" style="font-size:clamp(24px,7vw,32px)">入口前の待合スペースへ<br>お越しください</div>`,
+      `<div class="small c">待合スペースに着いたら、半券を右になぞってもぎり、スタッフにこの画面をお見せください。画面をタップすると音が止まります。</div>`);
   }
   if (me.status === 'inroom' || me.status === 'guided') {
-    return shell('in', `<div class="c"><div class="lab">あなたの番号</div><div class="num">${me.number}</div></div>
-      <div class="c"><div class="stamp">入室済み</div></div>
-      <div class="c"><div class="lab">入室した時刻</div><div class="clock">${me.enteredAt ? fmtHMS(me.enteredAt) : ''}</div><div class="lab" style="margin-top:8px">現在の時刻</div><div class="clock" id="clk"></div></div>
-      <div class="small c">${who}<br>このあとは、スタッフの案内に従ってください。</div>`, '');
+    return shell('in', `<div class="tk in"><div class="tk-main cut"><div class="stamp">入室済み</div><div class="tk-lab">整理券</div><div class="tk-num">${me.number}</div><div class="tk-who">${who}</div>
+        <div class="tk-times"><div><span>入室</span><b>${me.enteredAt ? fmtHMS(me.enteredAt) : ''}</b></div><div><span>現在</span><b id="clk"></b></div></div></div></div>
+      <div class="small c">このあとは、スタッフの案内に従ってください。</div>`,
+      '<button class="btn sub" id="again">新しい整理券を発行する</button>');
   }
   if (me.status === 'cancelled') return shell('end', numBlock('あなたの番号') + '<div class="h1 c">キャンセルしました</div>', '<button class="btn sub" id="again">新しい整理券を発行する</button>');
   if (me.status === 'absent') return shell('end', numBlock('あなたの番号') + '<div class="h1 c">この整理券は<br>無効になりました</div><p class="p c">ご利用の場合は、スタッフにお声がけください。</p>', '<button class="btn sub" id="again">新しい整理券を発行する</button>');
@@ -163,7 +173,11 @@ function wire() {
   };
   if ($('cancel')) $('cancel').onclick = () => {
     if (!confirm('整理券をキャンセルします。\nよろしいですか？（元には戻せません）')) return;
-    db.collection('tickets').doc(me.id).update({ status: 'cancelled', cancelledAt: Date.now() }).catch(() => alert('キャンセルできませんでした。もう一度お試しください'));
+    const ref = db.collection('tickets').doc(me.id), now = Date.now();
+    // 新しいルールでは cancelledBy も書ける。古いルールのままでも動くよう、拒否されたら cancelledBy なしでやり直す
+    ref.update({ status: 'cancelled', cancelledAt: now, cancelledBy: 'customer' })
+      .catch(() => ref.update({ status: 'cancelled', cancelledAt: now }))
+      .catch(() => alert('キャンセルできませんでした。もう一度お試しください'));
   };
   if ($('again')) $('again').onclick = leave;
   if ($('another')) $('another').onclick = () => { if (confirm('この端末に表示している整理券を外して、新しい整理券を発行できるようにします。')) leave(); };
@@ -174,21 +188,25 @@ function wire() {
 function setupTear() {
   const tr = document.getElementById('tear'), h = document.getElementById('tearH');
   if (!tr || !h) return;
+  const tk = tr.closest('.tk') || tr;
   let sx = 0, drag = false, max = 1, x = 0;
-  h.onpointerdown = e => { drag = true; dragging = true; sx = e.clientX; x = 0; max = Math.max(1, tr.clientWidth - h.offsetWidth - 8); h.setPointerCapture(e.pointerId); };
-  h.onpointermove = e => { if (!drag) return; x = Math.max(0, Math.min(max, e.clientX - sx)); h.style.transform = `translateX(${x}px)`; tr.style.setProperty('--p', x / max); };
+  h.onpointerdown = e => { drag = true; dragging = true; sx = e.clientX; x = 0; tk.classList.remove('snap'); max = Math.max(1, tr.clientWidth - h.offsetWidth - 8); h.setPointerCapture(e.pointerId); };
+  h.onpointermove = e => { if (!drag) return; x = Math.max(0, Math.min(max, e.clientX - sx)); h.style.transform = `translateX(${x}px)`; tk.style.setProperty('--p', x / max); if (x / max > 0.05) vibrate(8); };
   const end = () => {
     if (!drag) return; drag = false;
-    if (x >= max * 0.85) { tear(tr); return; }
-    h.style.transition = 'transform .2s'; h.style.transform = 'translateX(0)'; tr.style.setProperty('--p', 0);
-    setTimeout(() => { h.style.transition = ''; dragging = false; if (pending) { pending = false; render(); } }, 220);
+    if (x >= max * 0.85) { tear(tr, tk); return; }
+    tk.classList.add('snap'); h.style.transition = 'transform .2s'; h.style.transform = 'translateX(0)'; tk.style.setProperty('--p', 0);
+    setTimeout(() => { h.style.transition = ''; tk.classList.remove('snap'); dragging = false; if (pending) { pending = false; render(); } }, 240);
   };
   h.onpointerup = end; h.onpointercancel = end;
 }
-function tear(tr) {
-  tr.classList.add('tearing'); stopRing();
-  db.collection('tickets').doc(me.id).update({ status: 'inroom', enteredAt: Date.now(), torn: true })
-    .then(() => { dragging = false; pending = false; vibrate(80); render(); })
+function tear(tr, tk) {
+  stopRing(); ensureAudio(); rip(); vibrate([60, 40, 90]);
+  tk.style.setProperty('--p', 1); tk.classList.add('ripped');
+  const wait = new Promise(r => setTimeout(r, 750));
+  const save = db.collection('tickets').doc(me.id).update({ status: 'inroom', enteredAt: Date.now(), torn: true });
+  Promise.all([save, wait])
+    .then(() => { dragging = false; pending = false; render(); })
     .catch(() => { alert('もぎれませんでした。もう一度お試しください'); dragging = false; pending = false; render(); });
 }
 

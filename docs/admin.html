@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=9"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=10"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -16,20 +16,29 @@
     <div class="slots" id="slots"></div>
     <div class="bar">
       <button id="callNext" class="call btn-main">次の組を呼ぶ</button>
-      <button id="checkBtn" class="ico" aria-label="入口確認">🔍</button>
+      <button id="checkBtn" class="ico" aria-label="番号で確認">🔍</button>
+      <button id="histBtn" class="ico" aria-label="受付した整理券の一覧">📋</button>
       <button id="gearBtn" class="ico" aria-label="管理メニュー">⚙</button>
     </div>
     <div class="stats" id="stats"></div>
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v9</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v10</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
 
+<div id="hist" class="modal" hidden><div class="sheet">
+  <h3>受付した整理券の一覧</h3>
+  <div class="box"><input id="hq" type="text" placeholder="番号またはニックネームで検索" autocomplete="off">
+    <div class="chips" id="hchips"></div></div>
+  <div id="hlist"></div>
+  <button id="hClose" class="full" style="min-height:56px">閉じる</button>
+</div></div>
+
 <div id="check" class="modal" hidden><div class="sheet">
-  <h3>入口での確認</h3>
+  <h3>この整理券の状態</h3>
   <div class="box"><input id="chkIn" type="tel" inputmode="numeric" placeholder="番号を入力（または一覧の番号をタップ）">
   <div id="chkRes"></div></div>
   <button id="chkClose" class="full" style="min-height:56px">閉じる</button>
@@ -53,7 +62,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=9"></script><script src="common.js?v=9"></script>
+<script src="firebase-config.js?v=10"></script><script src="common.js?v=10"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -64,6 +73,41 @@ let holdEl = null, holdTimer = null, pendingRender = false;
 const label = t => `${t.name ? esc(t.name) : '（名前なし）'} <small>${t.people}名</small>`;
 const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const fmtT = ms => ms ? new Date(ms).toLocaleTimeString('ja-JP', { hour12: false }) : '';
+
+const fmtDur = ms => { const s = Math.max(0, Math.round(ms / 1000)); if (s < 60) return s + '秒'; const m = Math.floor(s / 60), r = s % 60; return m + '分' + (r ? r + '秒' : ''); };
+// その整理券が終わった（または今の）時刻
+const endOf = t => isDone(t) ? (t.enteredAt || Date.now()) : t.status === 'absent' ? (t.absentAt || null) : t.status === 'cancelled' ? (t.cancelledAt || null) : Date.now();
+const isInvalid = t => t.status === 'absent' || t.status === 'cancelled';
+const stateName = t => isDone(t) ? '入室済み' : t.status === 'called' ? '呼び出し中' : t.status === 'waiting' ? '順番待ち' : t.status === 'cancelled' ? 'キャンセル' : '欠席';
+function reasonOf(t) {
+  if (t.status === 'cancelled') return t.cancelledBy === 'staff' ? 'スタッフがキャンセルしました' : 'お客さんが自分でキャンセルしました';
+  if (t.status === 'absent') return 'スタッフが欠席にしました' + (t.absentFrom === 'called' ? '（呼び出したが来なかった）' : t.absentFrom === 'waiting' ? '（順番待ちのとき）' : '');
+  return '';
+}
+// 一覧に出す短い説明
+function outline(t) {
+  const end = endOf(t), made = t.createdAt;
+  if (isDone(t)) return `${fmtT(t.enteredAt)}に入室` + (made && t.calledAt ? `　呼ばれるまで${fmtDur(t.calledAt - made)}` : '');
+  if (t.status === 'called') return `${fmtT(t.calledAt)}に呼び出し`;
+  if (t.status === 'waiting') return made ? `${fmtT(made)}に発行　待機中${fmtDur(Date.now() - made)}` : '';
+  return `${t.status === 'cancelled' ? 'お客さんがキャンセル' : 'スタッフが欠席にした'}` + (made && end ? `　待ち${fmtDur(end - made)}` : '');
+}
+// 詳しい経過
+function detailHtml(t) {
+  const rows = [], end = endOf(t), made = t.createdAt;
+  const add = (k, v) => rows.push(`<tr><th>${k}</th><td>${v}</td></tr>`);
+  if (isInvalid(t)) add('無効になった理由', `<b style="color:var(--bad)">${reasonOf(t)}</b>`);
+  if (made) add('発行', fmtT(made));
+  if (t.calledAt) add('呼び出し', fmtT(t.calledAt));
+  if (isDone(t)) add('入室', fmtT(t.enteredAt) + (t.torn ? '（お客さんがもぎり）' : '（スタッフが操作）'));
+  if (t.status === 'absent') add('欠席にした時刻', t.absentAt ? fmtT(t.absentAt) : '記録なし');
+  if (t.status === 'cancelled') add('キャンセルした時刻', t.cancelledAt ? fmtT(t.cancelledAt) : '記録なし');
+  if (made && (t.calledAt || end)) add('待った時間', fmtDur((t.calledAt || end) - made) + (t.calledAt ? '（発行→呼び出し）' : isInvalid(t) ? '（発行→無効になるまで）' : '（発行から今まで）'));
+  if (t.calledAt && end && t.status !== 'waiting') add('呼び出してから', fmtDur(end - t.calledAt) + (t.status === 'called' ? '（経過中）' : isDone(t) ? '（入室まで）' : '（無効になるまで）'));
+  if (t.orderKey != null && t.orderKey !== t.number) add('順番', '後ろに回しました');
+  if (t.test) add('種類', 'テスト用');
+  return `<table class="det">${rows.join('')}</table>`;
+}
 
 /* ---------- 更新（取引） ---------- */
 // 他の端末と同時に操作しても二重にならないよう、状態を確認してから書き換える
@@ -99,16 +143,21 @@ function doUndo() {
 }
 
 const act = {
-  enter: t => txRun(t.id, ['called'], () => ({ status: 'inroom', enteredAt: Date.now() }), `${t.number}番を入室済みにしました`),
+  enter: t => txRun(t.id, ['called'], () => ({ status: 'inroom', enteredAt: Date.now(), torn: del() }), `${t.number}番を入室済みにしました`),
   renotify: t => txRun(t.id, ['called'], () => ({ reNotifiedAt: Date.now() }), `${t.number}番に再通知しました`),
-  absent: t => txRun(t.id, ['waiting', 'called'], () => ({ status: 'absent' }), `${t.number}番を欠席にしました`),
+  absent: t => txRun(t.id, ['waiting', 'called'], cur => ({ status: 'absent', absentAt: Date.now(), absentBy: 'staff', absentFrom: cur.status }), `${t.number}番を欠席にしました`),
   // 入室済みにしたのを取り消して、呼び出し中に戻す
   reopen: t => txRun(t.id, ['inroom', 'guided'], () => ({ status: 'called', enteredAt: del(), torn: del() }), `${t.number}番を呼び出し中に戻しました`),
-  // 番号はそのままで、順番だけを今の最後尾にする
+  // 番号はそのままで、順番だけを BACK_COUNT 組ぶん後ろにする（最後尾までは回さない）
   back: t => txRun(t.id, ['waiting', 'called'], async (cur, tx) => {
-    const c = await tx.get(counter()); const last = c.exists ? c.data().last || 0 : 0;
-    return { status: 'waiting', orderKey: last + 0.5 + (Date.now() % 100000000) / 1e9, calledAt: del() };
-  }, `${t.number}番を後ろに回しました`)
+    const others = list.filter(x => inLine(x) && x.id !== t.id).sort(byOrder);
+    const base = cur.status === 'waiting' ? others.filter(x => byOrder(x, t) < 0).length : 0;
+    const at = base + BACK_COUNT;
+    let key;
+    if (at >= others.length) { const c = await tx.get(counter()); key = (c.exists ? c.data().last || 0 : 0) + 0.5 + (Date.now() % 100000000) / 1e9; }
+    else key = (orderKey(others[at - 1] || { number: orderKey(others[at]) - 1 }) + orderKey(others[at])) / 2;
+    return { status: 'waiting', orderKey: key, calledAt: del(), skipped: (cur.skipped || 0) + 1 };
+  }, `${t.number}番を${BACK_COUNT}組ぶん後ろに回しました`)
 };
 function callNext() {
   const line = list.filter(inLine).sort(byOrder);
@@ -153,6 +202,7 @@ function render() {
     <details style="margin-top:12px"><summary style="font-weight:800;color:#5a6378;padding:8px 4px">入室済み（${done.length}組）</summary><div class="grid">${done.map(doneHtml).join('')}</div></details>`;
   tickEl();
   if (!$('check').hidden) renderCheck();
+  if (!$('hist').hidden) renderHist();
   scheduleSummary();
 }
 function tickEl() {
@@ -207,14 +257,36 @@ function renderCheck() {
   const t = list.find(x => x.number === v);
   if (!t) { box.innerHTML = `<div class="check bad"><div class="n">${v}</div><div class="s">該当する番号がありません</div></div>`; return; }
   const info = `<div style="font-size:20px;font-weight:800;margin-top:6px">${label(t)}</div>`;
-  let cls, text, extra = '', btn = '';
-  if (isDone(t)) { cls = 'ok'; text = '入室済み ✔'; extra = `入室時刻 ${fmtT(t.enteredAt)}${t.torn ? '（お客さんのスマホでもぎり済み）' : ''}`; }
-  else if (t.status === 'called') { cls = 'warn'; text = '呼び出し中（まだ入室していません）'; extra = `呼び出し時刻 ${fmtT(t.calledAt)}`; btn = `<button class="full btn-ok" style="min-height:60px;font-size:20px" data-a="enter" data-id="${t.id}">入室済みにする</button>`; }
-  else if (t.status === 'waiting') { cls = 'none'; text = 'まだ呼び出していません'; extra = '順番待ちです'; }
-  else { cls = 'bad'; text = t.status === 'cancelled' ? '無効です（キャンセル済み）' : '無効です（欠席）'; }
-  box.innerHTML = `<div class="check ${cls}"><div class="n">${t.number}</div><div class="s">${text}</div>${info}<div>${extra}</div></div>${btn}`;
+  let cls, text, btn = '';
+  if (isDone(t)) { cls = 'ok'; text = '入室済み ✔'; }
+  else if (t.status === 'called') { cls = 'warn'; text = '呼び出し中（まだ入室していません）'; btn = `<button class="full btn-ok" style="min-height:60px;font-size:20px" data-a="enter" data-id="${t.id}">入室済みにする</button>`; }
+  else if (t.status === 'waiting') { cls = 'none'; text = 'まだ呼び出していません（順番待ち）'; }
+  else { cls = 'bad'; text = t.status === 'cancelled' ? '無効です（キャンセル）' : '無効です（欠席）'; }
+  box.innerHTML = `<div class="check ${cls}"><div class="n">${t.number}</div><div class="s">${text}</div>${info}</div>${detailHtml(t)}${btn}`;
 }
 $('chkIn').oninput = renderCheck; $('checkBtn').onclick = () => openCheck(''); $('chkClose').onclick = () => { $('check').hidden = true; };
+
+/* ---------- 受付した整理券の一覧 ---------- */
+let hFilter = 'all';
+const H_FILTERS = [['all', 'すべて'], ['live', '待ち・呼び出し中'], ['done', '入室済み'], ['bad', '無効']];
+function renderHist() {
+  const q = $('hq').value.trim();
+  $('hchips').innerHTML = H_FILTERS.map(([k, n]) => `<button data-f="${k}" class="chip ${hFilter === k ? 'on' : ''}">${n}</button>`).join('');
+  let ls = list.slice().sort((a, b) => b.number - a.number);
+  if (hFilter === 'live') ls = ls.filter(t => t.status === 'waiting' || t.status === 'called');
+  if (hFilter === 'done') ls = ls.filter(isDone);
+  if (hFilter === 'bad') ls = ls.filter(isInvalid);
+  if (q) ls = ls.filter(t => String(t.number) === q.replace(/[^0-9]/g, '') || (t.name || '').includes(q));
+  $('hlist').innerHTML = ls.length ? ls.map(t => `<div class="hrow ${t.status}">
+      <div class="hn">${t.number}</div>
+      <div class="hm"><div class="who">${label(t)} <span class="pill ${isDone(t) ? 'inroom' : t.status}">${stateName(t)}</span></div><div class="ho">${outline(t)}</div></div>
+      <button class="ico2" data-a="check" data-id="${t.id}" aria-label="詳しく見る">🔍</button></div>`).join('')
+    : '<div class="box" style="color:#8a93a6">該当する整理券はありません</div>';
+}
+$('histBtn').onclick = () => { $('hist').hidden = false; renderHist(); };
+$('hClose').onclick = () => { $('hist').hidden = true; };
+$('hq').oninput = renderHist;
+$('hchips').onclick = e => { const b = e.target.closest('[data-f]'); if (b) { hFilter = b.dataset.f; renderHist(); } };
 
 /* ---------- 管理メニュー ---------- */
 $('gearBtn').onclick = () => {
@@ -256,8 +328,8 @@ $('resetBtn').onclick = async () => {
 };
 $('csvBtn').onclick = () => {
   const st = { waiting: '順番待ち', called: '呼び出し中', inroom: '入室済み', guided: '入室済み', absent: '欠席', cancelled: 'キャンセル' };
-  const rows = [['番号', 'ニックネーム', '人数', '状態', '発行時刻', '呼び出し時刻', '入室時刻', 'テスト']].concat(
-    list.map(t => [t.number, t.name || '', t.people, st[t.status] || t.status, fmtT(t.createdAt), fmtT(t.calledAt), fmtT(t.enteredAt), t.test ? 'テスト' : '']));
+  const rows = [['番号', 'ニックネーム', '人数', '状態', '発行時刻', '呼び出し時刻', '入室時刻', '無効の理由', '待った時間（分）', 'テスト']].concat(
+    list.map(t => [t.number, t.name || '', t.people, st[t.status] || t.status, fmtT(t.createdAt), fmtT(t.calledAt), fmtT(t.enteredAt), reasonOf(t), t.createdAt && (t.calledAt || endOf(t)) ? Math.round(((t.calledAt || endOf(t)) - t.createdAt) / 60000) : '', t.test ? 'テスト' : '']));
   const text = '\ufeff' + rows.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(',')).join('\r\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = `seiriken-${today()}.csv`; a.click();
 };
