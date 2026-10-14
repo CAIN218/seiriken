@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="stylesheet" href="customer.css?v=8"></head>
+<title>整理券</title><link rel="stylesheet" href="customer.css?v=9"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=8"></script><script src="common.js?v=8"></script>
+<script src="firebase-config.js?v=9"></script><script src="common.js?v=9"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -54,7 +54,7 @@ function subMe() {
 }
 async function issue() {
   const name = nick.trim().slice(0, 12);
-  if (!name) { formErr = 'ニックネームを入れてください'; render(); return; }
+  if (!name) { formErr = 'ニックネームを入力してください'; render(); return; }
   if (busy) return; busy = true; formErr = ''; render();
   const ref = db.collection('counters').doc(today());
   const newRef = db.collection('tickets').doc();
@@ -72,64 +72,64 @@ async function issue() {
     try { localStorage.setItem(KEY, myId); localStorage.setItem('seiriken-nick', name); } catch (e) {}
     busy = false; subMe();
   } catch (err) {
-    busy = false; formErr = err.message === 'closed' ? '今は整理券を出せません' : '発券できませんでした。もう一度おしてください'; render();
+    busy = false; formErr = err.message === 'closed' ? 'ただいま整理券を発行できません' : '整理券を発行できませんでした。もう一度お試しください'; render();
   }
 }
 function leave() { try { localStorage.removeItem(KEY); } catch (e) {} myId = null; me = null; st = {}; stopRing(); subMe(); }
 
 /* ---------- 画面 ---------- */
-const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${TEST ? '<div class="banner test">テストモード（本番の記録には残りません）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}</div></div>`; };
-const notifyBtn = () => `<button class="btn sub" id="notif">${soundOn ? '🔔 通知ON（タップでテスト音）' : '🔔 通知をONにする'}</button><div class="small c">iPhoneでは振動しません。画面を開いたままにしてください。</div>`;
-const cancelBtn = () => '<div class="c"><button class="linkbtn" id="cancel">キャンセルする</button></div>';
-const stubHtml = (enabled) => `<div class="stub ${enabled ? '' : 'off'}"><div class="tear" id="${enabled ? 'tear' : 'tearOff'}"><div class="tear-txt">${enabled ? 'スライドして もぎる' : '呼ばれたら もぎれます'}</div><div class="tear-h" ${enabled ? 'id="tearH"' : ''}>✂</div></div></div>`;
+const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}</div></div>`; };
+const notifyBtn = () => `<button class="btn sub" id="notif">${soundOn ? '🔔 通知オン（タップで音を確認）' : '🔔 通知をオンにする'}</button><div class="small c">iPhoneでは振動しません。この画面を開いたままにしてください。</div>`;
+const cancelBtn = () => '<div class="c"><button class="linkbtn" id="cancel">整理券をキャンセルする</button></div>';
+const stubHtml = (enabled) => `<div class="stub ${enabled ? '' : 'off'}"><div class="tear" id="${enabled ? 'tear' : 'tearOff'}"><div class="tear-txt">${enabled ? '右にスライドして、もぎる' : '呼ばれるまで、もぎれません'}</div><div class="tear-h" ${enabled ? 'id="tearH"' : ''}>✂</div></div></div>`;
 
 function viewIssue() {
   const wc = sum.waitCount || 0, mins = Math.round(wc * gapSec() / 60);
-  const head = `<div class="card c"><div class="lab">いまの待ち</div><div class="huge">${wc}<span class="h1">組</span></div><div class="p">${wc ? `目安 約${mins}分` : 'すぐご案内できます'}</div></div>`;
+  const head = `<div class="card c"><div class="lab">現在の待ち</div><div class="huge">${wc}<span class="h1">組</span></div><div class="p">${wc ? `待ち時間の目安：約${Math.max(1, mins)}分` : '待ちはありません。すぐにご案内できます。'}</div></div>`;
   if (cfg.closed) {
-    return shell('stop', head + `<div class="card c"><div class="h1">いま整理券の発行を<br>おやすみしています</div>
-      ${cfg.closedReason ? `<p class="p">理由: ${esc(cfg.closedReason)}</p>` : ''}
-      ${cfg.reopenAt ? `<p class="p">再開予定: ${esc(cfg.reopenAt)}</p>` : ''}
-      <p class="small">会場の係の人にお声がけください。</p></div>`, '');
+    return shell('stop', head + `<div class="card c"><div class="h1">ただいま整理券の発行を<br>一時停止しています</div>
+      ${cfg.closedReason ? `<p class="p">理由：${esc(cfg.closedReason)}</p>` : ''}
+      ${cfg.reopenAt ? `<p class="p">再開の予定：${esc(cfg.reopenAt)}</p>` : ''}
+      <p class="small">ご不明な点は、会場のスタッフにお声がけください。</p></div>`, '');
   }
   return shell('none', head + `<div class="card"><div class="lab">ニックネーム（12文字まで）</div>
-      <input class="field" id="nick" maxlength="12" placeholder="例: たろう" value="${esc(nick)}" autocomplete="off"></div>
+      <input class="field" id="nick" maxlength="12" placeholder="例：たろう" value="${esc(nick)}" autocomplete="off"></div>
     <div class="card"><div class="lab">人数</div><div class="seg" style="margin-top:8px"><button data-p="1" class="${people === 1 ? 'on' : ''}">1人</button><button data-p="2" class="${people === 2 ? 'on' : ''}">2人</button></div></div>
     ${formErr ? `<div class="err c">${esc(formErr)}</div>` : ''}`,
-    `<button class="btn" id="issue" ${busy ? 'disabled' : ''}>${busy ? '発券中…' : '発券する'}</button>`);
+    `<button class="btn" id="issue" ${busy ? 'disabled' : ''}>${busy ? '発行しています…' : '整理券を発行する'}</button>`);
 }
 
 function viewTicket() {
   const li = line(), idx = li.indexOf(me.number);
   const ahead = idx >= 0 ? idx : li.filter(n => n < me.number).length;
   const moved = me.status === 'waiting' && me.orderKey != null && me.orderKey !== me.number;
-  const who = esc([me.name, me.people + '名'].filter(Boolean).join(' ・ '));
+  const who = esc([me.name, me.people + '名'].filter(Boolean).join('　'));
   const numBlock = (label) => `<div class="c"><div class="lab">${label}</div><div class="num">${me.number}</div><div class="small">${who}</div></div>`;
-  const another = TEST ? '<div class="c"><button class="linkbtn" id="another">別の整理券を発行する（テスト）</button></div>' : '';
+  const another = TEST ? '<div class="c"><button class="linkbtn" id="another">別の整理券を発行する（テスト用）</button></div>' : '';
 
   if (me.status === 'called') {
-    return shell('call', `<div class="h1 c">今すぐ入口へ！</div>${numBlock('あなたの番号')}
-      <div class="c"><div class="lab">のこり時間</div><div class="cd" id="cd">--:--</div></div>
-      <div class="p c">入口前の待合スペースに来てください。<br><span class="small">画面をタップすると音が止まります</span></div>`, stubHtml(true));
+    return shell('call', `<div class="h1 c">順番が来ました</div>${numBlock('あなたの番号')}
+      <div class="h1 c">入口前の待合スペースへ<br>お越しください</div>
+      <div class="small c">画面をタップすると、音が止まります。</div>`,
+      `<div class="small c">待合スペースに着いたら、下の半券をもぎって、スタッフにこの画面をお見せください。</div>` + stubHtml(true));
   }
-  if (me.status === 'inroom') {
+  if (me.status === 'inroom' || me.status === 'guided') {
     return shell('in', `<div class="c"><div class="lab">あなたの番号</div><div class="num">${me.number}</div></div>
       <div class="c"><div class="stamp">入室済み</div></div>
-      <div class="c"><div class="lab">入室した時刻</div><div class="clock">${me.enteredAt ? fmtHMS(me.enteredAt) : ''}</div><div class="small">いまの時刻</div><div class="clock" id="clk"></div></div>
-      <div class="small c">${who}<br>スタッフの案内をお待ちください</div>`, '');
+      <div class="c"><div class="lab">入室した時刻</div><div class="clock">${me.enteredAt ? fmtHMS(me.enteredAt) : ''}</div><div class="lab" style="margin-top:8px">現在の時刻</div><div class="clock" id="clk"></div></div>
+      <div class="small c">${who}<br>このあとは、スタッフの案内に従ってください。</div>`, '');
   }
-  if (me.status === 'guided') return shell('end', numBlock('あなたの番号') + '<div class="h1 c">ご案内ずみです<br>ありがとうございました</div>', '<button class="btn sub" id="again">新しい整理券を出す</button>');
-  if (me.status === 'cancelled') return shell('end', numBlock('あなたの番号') + '<div class="h1 c">キャンセルしました</div>', '<button class="btn sub" id="again">新しい整理券を出す</button>');
-  if (me.status === 'absent') return shell('end', numBlock('あなたの番号') + '<div class="h1 c">お休みになりました</div><p class="p c">もう一度ご利用の場合は、係の人にお声がけください。</p>', '<button class="btn sub" id="again">新しい整理券を出す</button>');
+  if (me.status === 'cancelled') return shell('end', numBlock('あなたの番号') + '<div class="h1 c">キャンセルしました</div>', '<button class="btn sub" id="again">新しい整理券を発行する</button>');
+  if (me.status === 'absent') return shell('end', numBlock('あなたの番号') + '<div class="h1 c">この整理券は<br>無効になりました</div><p class="p c">ご利用の場合は、スタッフにお声がけください。</p>', '<button class="btn sub" id="again">新しい整理券を発行する</button>');
 
   // 順番待ち
   const soon = ahead <= WAITING_ROOM;
   const eta = etaText(ahead);
   const top = soon
-    ? `<div class="h1 c">会場へお越しください</div>${numBlock('あなたの番号')}<div class="c"><div class="huge">${ahead === 0 ? '次です' : 'あと' + ahead + '<span class="h1">組</span>'}</div><div class="p">目安 ${eta}ごろ</div></div>`
-    : `${numBlock('あなたの番号')}<div class="c"><div class="huge">あと${ahead}<span class="h1">組</span></div><div class="p">目安 ${eta}ごろ</div></div>
-       <div class="card p">この時刻に会場へ戻ってきてください。画面を開いていれば音でもお知らせします。</div>`;
-  return shell(soon ? 'soon' : 'wait', top + (moved ? '<div class="small c">※ 順番が後ろになりました（番号はそのままです）</div>' : ''),
+    ? `<div class="h1 c">会場へお越しください</div>${numBlock('あなたの番号')}<div class="c"><div class="huge">${ahead === 0 ? '次です' : 'あと' + ahead + '<span class="h1">組</span>'}</div><div class="p">まもなくお呼びします</div></div>`
+    : `${numBlock('あなたの番号')}<div class="c"><div class="huge">あと${ahead}<span class="h1">組</span></div><div class="p">目安：${eta}ごろ</div></div>
+       <div class="card p">${eta}ごろに、会場へお戻りください。この画面を開いたままにしておくと、音でもお知らせします。</div>`;
+  return shell(soon ? 'soon' : 'wait', top + (moved ? '<div class="small c">※順番が後ろになりました（番号は変わりません）</div>' : ''),
     notifyBtn() + stubHtml(false) + cancelBtn() + another);
 }
 
@@ -140,13 +140,13 @@ function render() {
   const li = line(), idx = li.indexOf(me.number), ahead = idx >= 0 ? idx : li.filter(n => n < me.number).length;
   const key = me.status === 'waiting' ? (ahead <= WAITING_ROOM ? 'soon' : 'wait') : me.status;
   const changed = st.key !== undefined && st.key !== key;
-  if (changed && key === 'soon') { beep(2); vibrate([300, 150, 300]); note('整理券 ' + me.number, '会場へお越しください'); }
-  if (key === 'called' && (st.key !== 'called')) { startRing(); note('整理券 ' + me.number, '今すぐ入口へお越しください！'); }
+  if (changed && key === 'soon') { beep(2); vibrate([300, 150, 300]); note('整理券 ' + me.number, 'まもなくご案内です。会場へお越しください'); }
+  if (key === 'called' && (st.key !== 'called')) { startRing(); note('整理券 ' + me.number, '順番が来ました。入口前の待合スペースへお越しください'); }
   if (key !== 'called') stopRing();
-  if (me.status === 'called' && me.reNotifiedAt != null && st.re != null && st.re !== me.reNotifiedAt) { startRing(); note('整理券 ' + me.number, 'お待ちしています。至急、入口へお越しください'); }
+  if (me.status === 'called' && me.reNotifiedAt != null && st.re != null && st.re !== me.reNotifiedAt) { startRing(); note('整理券 ' + me.number, 'お待ちしています。入口前の待合スペースへお越しください'); }
   st.re = me.reNotifiedAt != null ? me.reNotifiedAt : null; st.key = key;
   app.innerHTML = viewTicket();
-  document.title = key === 'called' ? '【入口へ！】整理券' : '整理券';
+  document.title = key === 'called' ? '【順番が来ました】整理券' : '整理券';
   wire(); tick();
 }
 
@@ -159,14 +159,14 @@ function wire() {
     ensureAudio(); beep(2); soundOn = true;
     try { localStorage.setItem('seiriken-sound', '1'); } catch (e) {}
     try { if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {}
-    $('notif').textContent = '🔔 通知ON（タップでテスト音）';
+    $('notif').textContent = '🔔 通知オン（タップで音を確認）';
   };
   if ($('cancel')) $('cancel').onclick = () => {
-    if (!confirm('整理券をキャンセルします。\nよろしいですか？（元にはもどせません）')) return;
-    db.collection('tickets').doc(me.id).update({ status: 'cancelled', cancelledAt: Date.now() }).catch(() => alert('キャンセルできませんでした'));
+    if (!confirm('整理券をキャンセルします。\nよろしいですか？（元には戻せません）')) return;
+    db.collection('tickets').doc(me.id).update({ status: 'cancelled', cancelledAt: Date.now() }).catch(() => alert('キャンセルできませんでした。もう一度お試しください'));
   };
   if ($('again')) $('again').onclick = leave;
-  if ($('another')) $('another').onclick = () => { if (confirm('この端末の整理券の表示を外して、新しく発券できるようにします。')) leave(); };
+  if ($('another')) $('another').onclick = () => { if (confirm('この端末に表示している整理券を外して、新しい整理券を発行できるようにします。')) leave(); };
   setupTear();
 }
 
@@ -189,19 +189,11 @@ function tear(tr) {
   tr.classList.add('tearing'); stopRing();
   db.collection('tickets').doc(me.id).update({ status: 'inroom', enteredAt: Date.now(), torn: true })
     .then(() => { dragging = false; pending = false; vibrate(80); render(); })
-    .catch(() => { alert('もぎれませんでした。もう一度おためしください'); dragging = false; pending = false; render(); });
+    .catch(() => { alert('もぎれませんでした。もう一度お試しください'); dragging = false; pending = false; render(); });
 }
 
-/* ---------- 時計・カウントダウン ---------- */
-function tick() {
-  const cd = document.getElementById('cd');
-  if (cd && me && me.calledAt) {
-    const left = Math.round(CALL_TIMEOUT_SEC - (Date.now() - me.calledAt) / 1000);
-    cd.textContent = left >= 0 ? `あと${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : '時間オーバー';
-    if (left < 0) cd.style.fontSize = 'clamp(40px,12vw,64px)';
-  }
-  const c = document.getElementById('clk'); if (c) c.textContent = fmtHMS(Date.now());
-}
+/* ---------- 時計 ---------- */
+function tick() { const c = document.getElementById('clk'); if (c) c.textContent = fmtHMS(Date.now()); }
 setInterval(tick, 500);
 
 db.collection('counters').doc(today()).onSnapshot(d => { cfg = d.exists ? d.data() : {}; render(); });
