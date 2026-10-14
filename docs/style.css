@@ -45,3 +45,5 @@ h2{font-size:1rem;margin:0 0 6px}
 .nowbox .l{font-size:.9rem;font-weight:700;opacity:.9}.nowbox .n{font-size:clamp(4rem,24vw,6.5rem);font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}.nowbox .w{font-size:1.1rem;font-weight:700;min-height:1.6em}
 .nextbox{background:var(--card);border:2px solid var(--accent);border-radius:16px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
 .nextbox .n{font-size:2.2rem;font-weight:800;color:var(--accent);min-width:2.4ch;text-align:center}
+.alert.call{background:var(--ok);color:#fff;font-size:1.15rem;text-align:center}
+.cap{display:flex;gap:6px;justify-content:center;margin:6px 0}.cap i{width:22px;height:22px;border-radius:6px;border:2px solid var(--line);display:block}.cap i.on{background:var(--accent);border-color:var(--accent)}.cap i.over{background:var(--bad);border-color:var(--bad)}

@@ -9,28 +9,30 @@ function today() {
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 // 今日のチケットを番号順で購読。cbには全チケット配列を渡す
+// 状態: waiting(順番待ち) → called(待機室へ呼び出し中) → inroom(待機室に入室) → guided(アトラクションへ案内済み) / absent
 function watchTickets(cb) {
   return db.collection('tickets').where('day', '==', today()).onSnapshot(snap => {
-    const list = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.number - b.number);
+    const list = snap.docs.map(d => {
+      const t = { id: d.id, ...d.data() };
+      if (t.status === 'arrived') t.status = 'inroom'; // 旧バージョンの状態名
+      return t;
+    }).sort((a, b) => a.number - b.number);
     cb(list);
   });
 }
-const isActive = t => t.status === 'waiting' || t.status === 'arrived';
-// 案内の順番に並ぶ組（飛ばし中を除く）
-const inLine = t => isActive(t) && !t.skipped;
-// これから案内する番号（先頭からn組）
+const isActive = t => t.status === 'waiting';                 // 順番待ち
+const inLine = t => t.status === 'waiting' && !t.skipped;      // 呼び出しの順番に並ぶ組（飛ばし中を除く）
+const inRoom = t => t.status === 'called' || t.status === 'inroom'; // 待機室の枠を使っている組
+const calledAtOf = t => t.calledAt || t.guidedAt || 0;
+// これから呼ぶ番号（先頭からn組）
 function upcoming(list, n) { return list.filter(inLine).slice(0, n); }
-
-// 現在案内中の番号（最後に案内した組）
-function currentNumber(list) {
-  const g = list.filter(t => t.status === 'guided').sort((a, b) => b.guidedAt - a.guidedAt)[0];
-  return g ? g.number : null;
-}
-// 現在案内中の組（最後に案内した組）
+// 現在呼び出し中の組（最後に呼んだ組）
 function currentTicket(list) {
-  return list.filter(t => t.status === 'guided').sort((a, b) => b.guidedAt - a.guidedAt)[0] || null;
+  return list.filter(t => t.status === 'called' || t.status === 'inroom' || t.status === 'guided')
+    .sort((a, b) => calledAtOf(b) - calledAtOf(a))[0] || null;
 }
-// 自分より前の有効な組数
+function currentNumber(list) { const t = currentTicket(list); return t ? t.number : null; }
+// 自分より前の順番待ちの組数
 function aheadOf(list, t) {
   return list.filter(x => inLine(x) && x.number < t.number).length;
 }

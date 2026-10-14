@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>整理券</title><link rel="stylesheet" href="style.css?v=4"></head>
+<title>整理券</title><link rel="stylesheet" href="style.css?v=5"></head>
 <body><header>整理券</header><main>
 <div id="app"><p class="sub center">読み込み中…</p></div>
 <p class="sub center">この画面を開いたままにしてください。順番が近づくと音・振動・表示でお知らせします（画面を閉じている間は届きません）。</p>
-<p class="sub center">v4</p>
+<p class="sub center">v5</p>
 </main>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=4"></script><script src="common.js?v=4"></script>
+<script src="firebase-config.js?v=5"></script><script src="common.js?v=5"></script>
 <script>
 const KEY = 'seiriken-' + today();
 let myId = null, people = 1, nick = '', list = [], state = {}, closedFlag = false;
@@ -34,8 +34,8 @@ async function issue() {
 }
 
 function status(cur, up, myNum) {
-  return `<div class="card center gap"><div class="label">現在案内中</div><div class="big">${cur ?? '—'}</div></div>
-    <div class="card center"><div class="label">これから案内する番号</div>
+  return `<div class="card center gap"><div class="label">現在呼び出し中</div><div class="big">${cur ?? '—'}</div></div>
+    <div class="card center"><div class="label">これから呼び出す番号</div>
     <div class="chips">${up.length ? up.map(t => `<span class="chip ${t.number === myNum ? 'me' : ''}">${t.number}</span>`).join('') : '<span class="sub">なし</span>'}</div></div>`;
 }
 
@@ -61,10 +61,11 @@ function render() {
   let msg = '', pill = '';
   if (me.status === 'guided') { msg = '<div class="alert now">ご案内済みです。ありがとうございました。</div>'; pill = '<span class="pill ok">案内済み</span>'; }
   else if (me.status === 'absent') { msg = '<div class="alert bad">不在のためキャンセルになりました。スタッフへお声がけください。</div>'; pill = '<span class="pill bad">キャンセル</span>'; }
-  else if (me.status === 'arrived') { msg = '<div class="alert now">待機室に到着済みです。スタッフの案内をお待ちください。</div>'; pill = '<span class="pill ok">到着済み</span>'; }
+  else if (me.status === 'inroom') { msg = '<div class="alert now">待機室に入りました。スタッフの案内をお待ちください。</div>'; pill = '<span class="pill ok">待機室に入室</span>'; }
+  else if (me.status === 'called') { msg = '<div class="alert call">お待たせしました！ 今すぐ待機室へお越しください。</div>'; pill = '<span class="pill warn">呼び出し中</span>'; }
   else if (me.skipped) { msg = '<div class="alert">順番を飛ばしました。会場に着いたらスタッフへお声がけください。</div>'; pill = '<span class="pill warn">飛ばし中</span>'; }
-  else if (ahead === 0) { msg = '<div class="alert">まもなくご案内です。至急、会場の待機室へお越しください。</div>'; pill = '<span class="pill warn">次です</span>'; }
-  else if (ahead <= WAITING_ROOM) { msg = `<div class="alert">あと${ahead}組でご案内です。会場の待機室へお越しください。</div>`; pill = `<span class="pill warn">あと${ahead}組</span>`; }
+  else if (ahead === 0) { msg = '<div class="alert">次に待機室へお呼びします。会場の近くでお待ちください。</div>'; pill = '<span class="pill warn">次です</span>'; }
+  else if (ahead <= WAITING_ROOM) { msg = `<div class="alert">あと${ahead}組で待機室へご案内です。会場へお越しください。</div>`; pill = `<span class="pill warn">あと${ahead}組</span>`; }
   else pill = `<span class="pill">あと${ahead}組</span>`;
   const who = [me.name, me.people + '名'].filter(Boolean).join(' ・ ');
   app.innerHTML = `${msg}<div class="card ticket center gap"><div class="label">あなたの整理券</div><div class="big">${me.number}</div>
@@ -79,15 +80,16 @@ function render() {
   // 通知（状態が変わったときだけ）
   const key = me.status === 'waiting' ? (me.skipped ? 'skipped' : ahead === 0 ? 'next' : ahead <= WAITING_ROOM ? 'near' : 'far') : me.status;
   if (state.key !== undefined && state.key !== key) {
-    if (key === 'near') notify('整理券 ' + me.number, `あと${ahead}組でご案内です。会場へお越しください`);
-    if (key === 'next') notify('整理券 ' + me.number, 'まもなくご案内です。待機室へお越しください');
+    if (key === 'near') notify('整理券 ' + me.number, `あと${ahead}組で待機室へご案内です。会場へお越しください`);
+    if (key === 'next') notify('整理券 ' + me.number, '次に待機室へお呼びします。会場の近くでお待ちください');
+    if (key === 'called') notify('整理券 ' + me.number, '待機室へお越しください！');
   }
-  if (me.status === 'waiting' && me.reNotifiedAt !== undefined && state.re !== undefined && state.re !== me.reNotifiedAt) {
-    notify('整理券 ' + me.number, 'お待ちしています。至急待機室へお越しください');
+  if ((me.status === 'waiting' || me.status === 'called') && me.reNotifiedAt !== undefined && state.re !== undefined && state.re !== me.reNotifiedAt) {
+    notify('整理券 ' + me.number, 'お待ちしています。至急、待機室へお越しください');
   }
   state.re = me.reNotifiedAt;
   state.key = key;
-  document.title = me.status === 'waiting' && !me.skipped && ahead <= WAITING_ROOM ? '【お越しください】整理券' : '整理券';
+  document.title = me.status === 'called' ? '【待機室へ！】整理券' : (me.status === 'waiting' && !me.skipped && ahead <= WAITING_ROOM ? '【お越しください】整理券' : '整理券');
 }
 db.collection('counters').doc(today()).onSnapshot(d => { closedFlag = !!(d.exists && d.data().closed); render(); });
 watchTickets(l => { list = l; render(); });
