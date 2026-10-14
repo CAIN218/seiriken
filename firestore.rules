@@ -9,10 +9,12 @@ service cloud.firestore {
       allow create: if request.resource.data.status == 'waiting'
         && request.resource.data.people in [1, 2]
         && (!('name' in request.resource.data) || request.resource.data.name.size() <= 12);
-      // お客さんは順番待ちの自分の券の取り消しだけ可
+      // お客さんは、順番待ちの券の取り消しと、呼び出し中の券のもぎり（入室）だけ可
       allow update: if request.auth != null
         || (resource.data.status == 'waiting' && request.resource.data.status == 'cancelled'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancelledAt']));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancelledAt']))
+        || (resource.data.status == 'called' && request.resource.data.status == 'inroom'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'enteredAt', 'torn']));
       allow delete: if request.auth != null;
     }
     match /summary/{day} {

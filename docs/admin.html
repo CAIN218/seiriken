@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="style.css?v=6"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="style.css?v=7"></head>
 <body><header>スタッフ画面</header><main>
 <div id="login" class="card" hidden>
   <input id="email" type="email" placeholder="メール" autocomplete="username">
@@ -44,12 +44,12 @@
     <p class="sub" style="margin:8px 0 0">本番前のテスト券は、「消去」で番号を1番に戻せます。</p>
   </div>
 </div>
-<p class="sub center" style="margin-top:24px">v6</p>
+<p class="sub center" style="margin-top:24px">v7</p>
 </main>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=6"></script><script src="common.js?v=6"></script>
+<script src="firebase-config.js?v=7"></script><script src="common.js?v=7"></script>
 <script>
 const auth = firebase.auth();
 let list = [], unsub = null, isOpen = true;
@@ -136,7 +136,7 @@ function render() {
   $('cap').innerHTML = Array.from({ length: Math.max(WAITING_ROOM, room.length) }, (_, i) => `<i class="${i < room.length ? (i >= WAITING_ROOM ? 'over' : 'on') : ''}"></i>`).join('');
   $('room').innerHTML = room.length ? room.map(t => `<div class="item"><div class="top">
       <span class="num">${t.number}</span><span class="who">${label(t)}</span>
-      <span class="pill ${t.status === 'inroom' ? 'ok' : 'warn'}">${t.status === 'inroom' ? '入室済み' : '呼び出し中（未到着）'}</span></div>
+      <span class="pill ${t.status === 'inroom' ? 'ok' : 'warn'}">${t.status === 'inroom' ? (t.torn ? 'もぎり済み（入室）' : '入室済み') : '呼び出し中（未到着）'}</span></div>
       <div class="actions">${t.status === 'called'
         ? `<button class="small ok" data-a="enter" data-id="${t.id}">来ました（入室）</button><button class="small ghost" data-a="renotify" data-id="${t.id}">再通知</button><button class="small ghost" data-a="recall" data-id="${t.id}">順番待ちに戻す</button>`
         : `<button class="small ok" data-a="guided" data-id="${t.id}">案内完了（枠を空ける）</button>`}

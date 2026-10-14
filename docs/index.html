@@ -1,16 +1,17 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>整理券</title><link rel="stylesheet" href="style.css?v=6"></head>
+<title>整理券</title><link rel="stylesheet" href="style.css?v=7"></head>
 <body><header>整理券</header><main>
 <div id="app"><p class="sub center">読み込み中…</p></div>
 <p class="sub center">この画面を開いたままにしてください。順番が近づくと音・振動・表示でお知らせします（画面を閉じている間は届きません）。</p>
-<p class="sub center">v6</p>
+<p class="sub center">v7</p>
 </main>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=6"></script><script src="common.js?v=6"></script>
+<script src="firebase-config.js?v=7"></script><script src="common.js?v=7"></script>
 <script>
 const KEY = 'seiriken-' + today();
+let dragging = false, pendingRender = false;
 let myId = null, people = 1, nick = '', me = null, sum = {}, cfg = {}, state = {}, unsubMe = null;
 try { myId = localStorage.getItem(KEY); nick = localStorage.getItem('seiriken-nick') || ''; } catch (e) {}
 const app = document.getElementById('app');
@@ -46,6 +47,39 @@ async function issue() {
   subMe();
 }
 
+function ticketHtml(pill, who, wait) {
+  const main = `<div class="tkt-main"><div class="label">あなたの整理券</div><div class="big">${me.number}</div><div>${pill}</div><div class="sub">${esc(who)}</div>${wait}</div>`;
+  let stub;
+  if (me.status === 'called') stub = '<div class="tear" id="tear"><div class="tear-txt">スライドして もぎる →</div><div class="tear-h" id="tearH">✂</div></div><div class="sub center" style="margin-top:8px">待機室の入口で、もぎった画面をスタッフに見せてください</div>';
+  else if (me.status === 'inroom') stub = '<div class="torn"><div class="stamp">もぎり済み</div><div class="clock" id="clock"></div></div>';
+  else if (me.status === 'guided') stub = '<div class="torn"><div class="stamp">使用済み</div></div>';
+  else stub = '<div class="stub-off">呼び出されたら、ここをもぎります</div>';
+  return `<div class="tkt gap">${main}<div class="tkt-perf"></div><div class="tkt-stub">${stub}</div></div>`;
+}
+// 半券をスライドしてもぎる
+function setupTear() {
+  const tr = document.getElementById('tear'), h = document.getElementById('tearH');
+  if (!tr || !h) return;
+  let sx = 0, drag = false, max = 1, x = 0;
+  h.onpointerdown = e => { drag = true; dragging = true; sx = e.clientX; x = 0; max = Math.max(1, tr.clientWidth - h.offsetWidth - 8); h.setPointerCapture(e.pointerId); };
+  h.onpointermove = e => { if (!drag) return; x = Math.max(0, Math.min(max, e.clientX - sx)); h.style.transform = `translateX(${x}px)`; tr.style.setProperty('--p', x / max); };
+  const end = () => {
+    if (!drag) return; drag = false;
+    if (x >= max * 0.85) { tear(tr); return; }
+    h.style.transition = 'transform .2s'; h.style.transform = 'translateX(0)'; tr.style.setProperty('--p', 0);
+    setTimeout(() => { h.style.transition = ''; dragging = false; if (pendingRender) { pendingRender = false; render(); } }, 220);
+  };
+  h.onpointerup = end; h.onpointercancel = end;
+}
+function tear(tr) {
+  tr.classList.add('tearing');
+  db.collection('tickets').doc(me.id).update({ status: 'inroom', enteredAt: Date.now(), torn: true })
+    .then(() => { dragging = false; pendingRender = false; if (navigator.vibrate) navigator.vibrate(80); render(); })
+    .catch(() => { alert('もぎれませんでした。もう一度お試しください'); dragging = false; pendingRender = false; render(); });
+}
+// もぎり済みの画面に動く時計（スクリーンショット対策）
+setInterval(() => { const c = document.getElementById('clock'); if (c) c.textContent = new Date().toLocaleTimeString('ja-JP', { hour12: false }); }, 500);
+
 function status(myNum) {
   const up = line().slice(0, 5);
   return `<div class="card center gap"><div class="label">現在呼び出し中</div><div class="big">${sum.current ?? '—'}</div></div>
@@ -54,6 +88,7 @@ function status(myNum) {
 }
 
 function render() {
+  if (dragging) { pendingRender = true; return; }
   if (!me) {
     const stopMsg = sum.waitCount > 0
       ? '現在、整理券の発行を停止しています。整理券をお持ちの方を先にご案内しています。会場の列にお並びください。'
@@ -86,8 +121,7 @@ function render() {
   const wait = (cfg.showWait && waiting && sum.avgGapSec) ? `<div class="sub">待ち時間の目安: ${ahead === 0 ? 'まもなく' : '約' + Math.max(1, Math.round(ahead * sum.avgGapSec / 60)) + '分'}</div>` : '';
   const who = [me.name, me.people + '名'].filter(Boolean).join(' ・ ');
   const cancel = (cfg.allowCancel && me.status === 'waiting') ? '<div class="center"><button class="link" id="cancel">この整理券を取り消す</button></div>' : '';
-  app.innerHTML = `${msg}<div class="card ticket center gap"><div class="label">あなたの整理券</div><div class="big">${me.number}</div>
-    <div>${pill}</div><div class="sub">${esc(who)}</div>${wait}</div>
+  app.innerHTML = `${msg}${ticketHtml(pill, who, wait)}
     ${status(me.number)}${cancel}
     <div class="center"><button class="link" id="another">別の整理券を発行する</button></div>`;
   document.getElementById('another').onclick = () => {
@@ -100,6 +134,7 @@ function render() {
     if (!confirm('整理券を取り消します。よろしいですか？（元には戻せません）')) return;
     db.collection('tickets').doc(me.id).update({ status: 'cancelled', cancelledAt: Date.now() }).catch(() => alert('取り消せませんでした'));
   };
+  setupTear();
   // 通知（状態が変わったときだけ）
   const key = me.status === 'waiting' ? (me.skipped ? 'skipped' : ahead === 0 ? 'next' : ahead <= WAITING_ROOM ? 'near' : 'far') : me.status;
   if (state.key !== undefined && state.key !== key) {
