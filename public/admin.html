@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>整理券 スタッフ</title><link rel="stylesheet" href="style.css"></head>
+<body><main style="max-width:720px">
+<h1>スタッフ画面</h1>
+<div id="login" class="card" hidden>
+  <input id="email" type="email" placeholder="メール" style="width:100%;padding:10px;margin-bottom:8px">
+  <input id="pass" type="password" placeholder="パスワード" style="width:100%;padding:10px;margin-bottom:8px">
+  <button id="loginBtn" style="width:100%">ログイン</button>
+</div>
+<div id="panel" hidden>
+  <div class="card"><button id="callNext" style="width:100%;font-size:1.2rem">次の組を案内する</button>
+  <p class="sub" id="info"></p>
+  <label><input type="checkbox" id="closed"> 発券を停止する</label></div>
+  <div class="card"><table id="tbl"></table></div>
+</div>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script><script src="common.js"></script>
+<script>
+const auth = firebase.auth();
+let list = [], unsub = null;
+const upd = (id, data) => db.collection('tickets').doc(id).update(data);
+
+loginBtn.onclick = () => auth.signInWithEmailAndPassword(email.value, pass.value).catch(() => alert('ログインできません'));
+auth.onAuthStateChanged(u => {
+  login.hidden = !!u; panel.hidden = !u;
+  if (u && !unsub) unsub = watchTickets(l => { list = l; render(); });
+});
+callNext.onclick = () => {
+  const t = list.filter(isActive)[0];
+  if (!t) return alert('待っている組はいません');
+  if (t.status === 'waiting' && !confirm(`${t.number}番はまだ到着していません。案内しますか？`)) return;
+  upd(t.id, { status: 'guided', guidedAt: Date.now() });
+};
+closed.onchange = () => db.collection('counters').doc(today()).set({ closed: closed.checked }, { merge: true });
+
+function render() {
+  const act = list.filter(isActive);
+  info.textContent = `案内中: ${currentNumber(list) ?? '—'} ／ 待ち ${act.length} 組`;
+  tbl.innerHTML = '<tr><th>番号</th><th>人数</th><th>状態</th><th></th></tr>' + act.map((t, i) => `
+    <tr><td><b>${t.number}</b></td><td>${t.people}名</td>
+    <td><span class="tag ${t.status}">${t.status === 'arrived' ? '到着済み' : (i < WAITING_ROOM ? '呼出し圏内' : '待ち')}</span></td>
+    <td>${t.status === 'waiting' ? `<button class="small" data-a="arrive" data-id="${t.id}">来ました</button>` : ''}
+    ${t.status === 'waiting' ? `<button class="small ghost" data-a="renotify" data-id="${t.id}">再通知</button>` : ''}
+    <button class="small ghost" data-a="skip" data-id="${t.id}">飛ばす</button>
+    <button class="small ghost" data-a="absent" data-id="${t.id}">欠席</button></td></tr>`).join('');
+  tbl.querySelectorAll('button').forEach(b => b.onclick = () => {
+    const id = b.dataset.id, a = b.dataset.a;
+    if (a === 'arrive') upd(id, { status: 'arrived' });
+    if (a === 'renotify') upd(id, { reNotifiedAt: Date.now() });
+    if (a === 'absent' && confirm('欠席にしますか？')) upd(id, { status: 'absent' });
+    if (a === 'skip') { // 番号を最後尾の番号に付け替えて後ろに回す
+      db.runTransaction(async tx => {
+        const ref = db.collection('counters').doc(today()), c = await tx.get(ref);
+        const n = c.data().last + 1;
+        tx.set(ref, { last: n }, { merge: true });
+        tx.update(db.collection('tickets').doc(id), { number: n, status: 'waiting' });
+      });
+    }
+  });
+}
+</script></body></html>

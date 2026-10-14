@@ -1,0 +1,17 @@
+:root{--bg:#fff;--fg:#1d2330;--sub:#5d6678;--accent:#d9480f;--card:#f6f7f9;--ok:#2b8a3e;--warn:#e67700}
+@media(prefers-color-scheme:dark){:root{--bg:#161a22;--fg:#eef0f4;--sub:#a3abbb;--card:#222835;--accent:#ff8c5a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Hiragino Sans",sans-serif;line-height:1.6}
+main{max-width:480px;margin:0 auto;padding:16px}
+h1{font-size:1.25rem;margin:8px 0 16px}
+.card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:12px}
+.big{font-size:3.2rem;font-weight:700;line-height:1.1}
+.sub{color:var(--sub);font-size:.9rem}
+button{font:inherit;border:0;border-radius:10px;padding:12px 16px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
+button.ghost{background:transparent;color:var(--fg);border:1px solid var(--sub)}
+button.small{padding:6px 10px;font-size:.85rem}
+.seg{display:flex;gap:8px;margin:12px 0}.seg button{flex:1;background:var(--bg);color:var(--fg);border:2px solid var(--sub)}.seg button.on{border-color:var(--accent);color:var(--accent)}
+.alert{border-left:6px solid var(--warn);background:var(--card);padding:12px 16px;border-radius:8px;margin-bottom:12px;font-weight:700}
+.alert.now{border-color:var(--ok)}
+table{width:100%;border-collapse:collapse}td,th{padding:8px 4px;border-bottom:1px solid var(--card);text-align:left}
+.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.8rem;background:var(--card)}
+.tag.arrived{background:var(--ok);color:#fff}

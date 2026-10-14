@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>整理券</title><link rel="stylesheet" href="style.css"></head>
+<body><main>
+<h1>整理券</h1>
+<div id="app"><p class="sub">読み込み中…</p></div>
+<p class="sub">この画面を開いたままにしてください。順番が近づくと音と振動でお知らせします。iPhoneは共有ボタンから「ホーム画面に追加」すると通知が届きやすくなります。</p>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script><script src="common.js"></script>
+<script>
+const KEY = 'seiriken-' + today();
+let myId = null, people = 1, list = [], state = {};
+try { myId = localStorage.getItem(KEY); } catch (e) {}
+const app = document.getElementById('app');
+
+async function issue() {
+  const ref = db.collection('counters').doc(today());
+  const newRef = db.collection('tickets').doc();
+  await db.runTransaction(async tx => {
+    const c = await tx.get(ref);
+    if (c.exists && c.data().closed) throw new Error('closed');
+    const n = (c.exists ? c.data().last || 0 : 0) + 1;
+    tx.set(ref, { last: n }, { merge: true });
+    tx.set(newRef, { day: today(), number: n, people, status: 'waiting', createdAt: Date.now() });
+  });
+  myId = newRef.id;
+  try { localStorage.setItem(KEY, myId); } catch (e) {}
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  render();
+}
+
+function render() {
+  const cur = currentNumber(list);
+  const me = list.find(t => t.id === myId);
+  if (!me) {
+    app.innerHTML = `<div class="card"><div class="sub">案内中の番号</div><div class="big">${cur ?? '—'}</div>
+      <div class="sub">待ち ${list.filter(isActive).length} 組</div></div>
+      <div class="card"><div>人数</div><div class="seg">
+      <button data-p="1" class="${people===1?'on':''}">1人</button><button data-p="2" class="${people===2?'on':''}">2人</button></div>
+      <button id="issue" style="width:100%">整理券を発行する</button></div>`;
+    app.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { people = +b.dataset.p; render(); });
+    document.getElementById('issue').onclick = e => { e.target.disabled = true; issue().catch(err => { alert(err.message === 'closed' ? '現在、発券を停止しています' : '発行に失敗しました。もう一度お試しください'); e.target.disabled = false; }); };
+    return;
+  }
+  const ahead = aheadOf(list, me);
+  let msg = '';
+  if (me.status === 'guided') msg = '<div class="alert now">ご案内済みです。ありがとうございました。</div>';
+  else if (me.status === 'absent') msg = '<div class="alert">不在のためキャンセルになりました。スタッフへお声がけください。</div>';
+  else if (me.status === 'arrived') msg = '<div class="alert now">待機室に到着済みです。スタッフの案内をお待ちください。</div>';
+  else if (ahead === 0) msg = '<div class="alert">まもなくご案内です。至急、会場の待機室へお越しください。</div>';
+  else if (ahead <= WAITING_ROOM) msg = `<div class="alert">あと${ahead}組でご案内です。会場の待機室へお越しください。</div>`;
+  app.innerHTML = `${msg}<div class="card"><div class="sub">あなたの整理券</div><div class="big">${me.number}</div>
+    <div class="sub">${me.people}名${isActive(me) ? ` ・ あと ${ahead} 組` : ''}</div></div>
+    <div class="card"><div class="sub">現在案内中の番号</div><div class="big">${cur ?? '—'}</div></div>`;
+  // 通知（状態が変わったときだけ）
+  const key = me.status === 'waiting' ? (ahead === 0 ? 'next' : ahead <= WAITING_ROOM ? 'near' : 'far') : me.status;
+  if (state.key !== undefined && state.key !== key) {
+    if (key === 'near') notify('整理券 ' + me.number, `あと${ahead}組でご案内です。会場へお越しください`);
+    if (key === 'next') notify('整理券 ' + me.number, 'まもなくご案内です。待機室へお越しください');
+  }
+  if (me.status === 'waiting' && ahead === 0 && me.reNotifiedAt !== undefined && state.re !== me.reNotifiedAt) {
+    if (state.re !== undefined) notify('整理券 ' + me.number, 'お待ちしています。至急待機室へお越しください');
+  }
+  state.re = me.reNotifiedAt;
+  state.key = key;
+  document.title = me.status === 'waiting' && ahead <= WAITING_ROOM ? '【お越しください】整理券' : '整理券';
+}
+watchTickets(l => { list = l; render(); });
+</script></body></html>
