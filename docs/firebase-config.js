@@ -12,3 +12,5 @@ window.CALL_TIMEOUT_SEC = 300;
 window.DEFAULT_GAP_SEC = 180;
 // スタッフ画面で、呼び出し・入室から何分たったら赤くするか
 window.ALERT_MIN = 5;
+// 整理券の上に出す名前
+window.EVENT_TITLE = 'ジュラシックス・パーク';

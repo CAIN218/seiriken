@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=11"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=12"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -24,7 +24,7 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v11</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v12</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -62,13 +62,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=11"></script><script src="common.js?v=11"></script>
+<script src="firebase-config.js?v=12"></script><script src="common.js?v=12"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
 const counter = () => db.collection('counters').doc(today());
 const del = () => firebase.firestore.FieldValue.delete();
-let list = [], cfg = {}, unsub = null, cachedSince = 0;
+let list = [], cfg = {}, unsub = null, unsubCnt = null, cachedSince = 0;
 let holdEl = null, holdTimer = null, pendingRender = false;
 const label = t => `${t.name ? esc(t.name) : '（名前なし）'} <small>${t.people}名</small>`;
 const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -77,20 +77,19 @@ const fmtT = ms => ms ? new Date(ms).toLocaleTimeString('ja-JP', { hour12: false
 const fmtDur = ms => { const s = Math.max(0, Math.round(ms / 1000)); if (s < 60) return s + '秒'; const m = Math.floor(s / 60), r = s % 60; return m + '分' + (r ? r + '秒' : ''); };
 // その整理券が終わった（または今の）時刻
 const endOf = t => isDone(t) ? (t.enteredAt || Date.now()) : t.status === 'absent' ? (t.absentAt || null) : t.status === 'cancelled' ? (t.cancelledAt || null) : Date.now();
-const isSkipped = t => t.status === 'skipped';
 const isInvalid = t => t.status === 'absent' || t.status === 'cancelled';
-const stateName = t => isDone(t) ? '入室済み' : t.status === 'called' ? '呼び出し中' : t.status === 'waiting' ? '順番待ち' : t.status === 'skipped' ? '飛ばし中' : t.status === 'cancelled' ? 'キャンセル' : '欠席';
+const stateName = t => isDone(t) ? '入室済み' : isSkipped(t) ? '飛ばし中' : t.status === 'called' ? '呼び出し中' : t.status === 'waiting' ? '順番待ち' :  t.status === 'cancelled' ? 'キャンセル' : '欠席';
 function reasonOf(t) {
   if (t.status === 'cancelled') return t.cancelledBy === 'staff' ? 'スタッフがキャンセルしました' : 'お客さんが自分でキャンセルしました';
-  if (t.status === 'absent') return 'スタッフが欠席にしました' + (t.absentFrom === 'called' ? '（呼び出したが来なかった）' : t.absentFrom === 'waiting' ? '（順番待ちのとき）' : t.absentFrom === 'skipped' ? '（飛ばし中のとき）' : '');
+  if (t.status === 'absent') return 'スタッフが欠席にしました' + (t.absentFrom === 'called' ? '（呼び出したが来なかった）' : t.absentFrom === 'waiting' ? '（順番待ちのとき）' : t.absentFrom === 'skipped' ? '（飛ばし中に、呼び出したが来なかった）' : '');
   return '';
 }
 // 一覧に出す短い説明
 function outline(t) {
   const end = endOf(t), made = t.createdAt;
   if (isDone(t)) return `${fmtT(t.enteredAt)}に入室` + (made && t.calledAt ? `　呼ばれるまで${fmtDur(t.calledAt - made)}` : '');
+  if (isSkipped(t)) return `${fmtT(t.calledAt)}に呼び出し　飛ばし中`;
   if (t.status === 'called') return `${fmtT(t.calledAt)}に呼び出し`;
-  if (t.status === 'skipped') return `${t.skippedAt ? fmtT(t.skippedAt) : ''}に飛ばした`;
   if (t.status === 'waiting') return made ? `${fmtT(made)}に発行　待機中${fmtDur(Date.now() - made)}` : '';
   return `${t.status === 'cancelled' ? 'お客さんがキャンセル' : 'スタッフが欠席にした'}` + (made && end ? `　待ち${fmtDur(end - made)}` : '');
 }
@@ -106,7 +105,7 @@ function detailHtml(t) {
   if (t.status === 'cancelled') add('キャンセルした時刻', t.cancelledAt ? fmtT(t.cancelledAt) : '記録なし');
   if (made && (t.calledAt || end)) add('待った時間', fmtDur((t.calledAt || end) - made) + (t.calledAt ? '（発行→呼び出し）' : isInvalid(t) ? '（発行→無効になるまで）' : '（発行から今まで）'));
   if (t.calledAt && end && t.status !== 'waiting') add('呼び出してから', fmtDur(end - t.calledAt) + (t.status === 'called' ? '（経過中）' : isDone(t) ? '（入室まで）' : '（無効になるまで）'));
-  if (t.skippedAt && (t.status === 'skipped' || t.skipped)) add('飛ばした時刻', fmtT(t.skippedAt) + (t.skipped > 1 ? `（${t.skipped}回）` : ''));
+  if (isSkipped(t) && t.skippedAt) add('飛ばした時刻', fmtT(t.skippedAt));
   if (t.test) add('種類', 'テスト用');
   return `<table class="det">${rows.join('')}</table>`;
 }
@@ -147,16 +146,12 @@ function doUndo() {
 const act = {
   enter: t => txRun(t.id, ['called'], () => ({ status: 'inroom', enteredAt: Date.now(), torn: del() }), `${t.number}番を入室済みにしました`),
   renotify: t => txRun(t.id, ['called'], () => ({ reNotifiedAt: Date.now() }), `${t.number}番に再通知しました`),
-  absent: t => txRun(t.id, ['waiting', 'called', 'skipped'], cur => ({ status: 'absent', absentAt: Date.now(), absentBy: 'staff', absentFrom: cur.status }), `${t.number}番を欠席にしました`),
+  absent: t => txRun(t.id, ['waiting', 'called'], cur => ({ status: 'absent', absentAt: Date.now(), absentBy: 'staff', absentFrom: cur.skipped ? 'skipped' : cur.status }), `${t.number}番を欠席にしました`),
   // 入室済みにしたのを取り消して、呼び出し中に戻す
   reopen: t => txRun(t.id, ['inroom', 'guided'], () => ({ status: 'called', enteredAt: del(), torn: del() }), `${t.number}番を呼び出し中に戻しました`),
-  // 順番待ちの列から外して「飛ばし中」に置く（番号は変わらない）
-  skip: t => txRun(t.id, ['waiting', 'called'], cur => ({ status: 'skipped', skippedAt: Date.now(), calledAt: del(), skipped: (cur.skipped || 0) + 1 }), `${t.number}番を飛ばし中にしました`),
-  // 飛ばし中の組が来たので、すぐ呼び出す
-  callSkipped: t => {
-    if (list.filter(inRoom).length >= WAITING_ROOM) return alert(`呼び出し中が上限（${WAITING_ROOM}組）です。空きが出てから呼び出してください。`);
-    txRun(t.id, ['skipped'], () => ({ status: 'called', calledAt: Date.now() }), `${t.number}番を呼び出しました`);
-  }
+  // 呼び出したまま、順番を後ろにする（飛ばし中）。来たら戻せる
+  skip: t => txRun(t.id, ['called'], () => ({ skipped: true, skippedAt: Date.now() }), `${t.number}番を飛ばし中にしました`),
+  unskip: t => txRun(t.id, ['called'], () => ({ skipped: del(), skippedAt: del() }), `${t.number}番を呼び出し中に戻しました`)
 };
 function callNext() {
   const line = list.filter(inLine).sort(byOrder);
@@ -172,10 +167,10 @@ function render() {
   const line = list.filter(inLine).sort(byOrder);
   const skipped = list.filter(isSkipped).sort((a, b) => (a.skippedAt || 0) - (b.skippedAt || 0));
   const done = list.filter(isDone).sort((a, b) => (b.enteredAt || 0) - (a.enteredAt || 0));
-  // 呼び出し中の枠
-  $('slots').innerHTML = Array.from({ length: Math.max(WAITING_ROOM, room.length) }, (_, i) => {
-    const t = room[i]; return `<div class="slot ${t ? 'called' : ''}">${t ? t.number : ''}<small>${t ? '呼び出し中' : '空き'}</small></div>`;
-  }).join('');
+  // 呼び出し中の組の番号（空き枠は出さない）
+  $('slots').innerHTML = room.length || skipped.length
+    ? room.map(t => `<div class="slot called">${t.number}<small>呼び出し中</small></div>`).join('') + skipped.map(t => `<div class="slot skipped">${t.number}<small>飛ばし中</small></div>`).join('')
+    : '<div class="slotnone">呼び出し中の組はありません</div>';
   const full = room.length >= WAITING_ROOM;
   $('callNext').disabled = full || !line.length;
   $('callNext').textContent = full ? `呼び出し中が上限（${WAITING_ROOM}組）です` : (line.length ? `次の組を呼ぶ（${line[0].number}番）` : '呼び出せる組はありません');
@@ -185,20 +180,20 @@ function render() {
   document.body.style.background = cfg.closed ? '#f3e4e4' : '';
 
   const rowHtml = (t, i) => {
-    const since = t.status === 'called' ? t.calledAt : t.status === 'skipped' ? t.skippedAt : t.createdAt;
-    const pill = t.status === 'called' ? '呼び出し中' : t.status === 'skipped' ? '飛ばし中' : (i === 0 ? '次' : '待ち');
+    const since = t.status === 'called' ? t.calledAt : t.createdAt;
+    const pill = isSkipped(t) ? '飛ばし中' : t.status === 'called' ? '呼び出し中' : (i === 0 ? '次' : '待ち');
     const hold = `<button data-hold="absent" data-id="${t.id}" style="user-select:none;-webkit-user-select:none;-webkit-touch-callout:none">欠席にする（長押し）</button>`;
     let acts = '';
-    if (t.status === 'called') acts = `<button class="big btn-ok" data-a="enter" data-id="${t.id}">入室済みにする</button><button data-a="renotify" data-id="${t.id}">再通知</button><button data-a="skip" data-id="${t.id}">飛ばす</button>${hold}`;
-    else if (t.status === 'skipped') acts = `<button class="big btn-ok" data-a="callSkipped" data-id="${t.id}">呼び出す</button>${hold}`;
-    else acts = `<button data-a="skip" data-id="${t.id}">飛ばす</button>${hold}`;
-    return `<div class="row ${t.status}" data-since="${since || ''}" data-late="${t.status === 'called' ? 1 : 0}">
-      <div class="rtop"><button class="numbtn" data-a="check" data-id="${t.id}">${t.number}</button><div class="who">${label(t)}</div><span class="pill ${t.status}">${pill}</span><span class="el"></span></div>
+    if (isSkipped(t)) acts = `<button class="big btn-ok" data-a="enter" data-id="${t.id}">入室済みにする</button><button data-a="unskip" data-id="${t.id}">呼び出し中に戻す</button><button data-a="renotify" data-id="${t.id}">再通知</button>${hold}`;
+    else if (t.status === 'called') acts = `<button class="big btn-ok" data-a="enter" data-id="${t.id}">入室済みにする</button><button data-a="renotify" data-id="${t.id}">再通知</button><button data-a="skip" data-id="${t.id}">飛ばす</button>${hold}`;
+    else acts = hold;
+    return `<div class="row ${isSkipped(t) ? 'skipped' : t.status}" data-since="${since || ''}" data-late="${t.status === 'called' && !t.skipped ? 1 : 0}">
+      <div class="rtop"><button class="numbtn" data-a="check" data-id="${t.id}">${t.number}</button><div class="who">${label(t)}</div><span class="pill ${isSkipped(t) ? 'skipped' : t.status}">${pill}</span><span class="el"></span></div>
       <div class="racts">${acts}</div></div>`;
   };
   const doneHtml = t => `<div class="row inroom"><div class="rtop"><button class="numbtn" data-a="check" data-id="${t.id}">${t.number}</button><div class="who">${label(t)}</div><span class="pill inroom">${t.torn ? '入室済み（もぎり）' : '入室済み'}</span><span class="el" style="font-size:14px">${fmtT(t.enteredAt)}</span></div>
       <div class="racts"><button data-a="reopen" data-id="${t.id}">呼び出し中に戻す</button></div></div>`;
-  $('lists').innerHTML = `<h2>呼び出し中（${room.length}/${WAITING_ROOM}組）</h2><div class="grid">${room.map(rowHtml).join('') || '<div class="row" style="color:#8a93a6">呼び出し中の組はありません</div>'}</div>
+  $('lists').innerHTML = `<h2>呼び出し中（${room.length}組）</h2><div class="grid">${room.map(rowHtml).join('') || '<div class="row" style="color:#8a93a6">呼び出し中の組はありません</div>'}</div>
     <h2>順番待ち（${line.length}組）</h2><div class="grid">${line.map(rowHtml).join('') || '<div class="row" style="color:#8a93a6">順番待ちの組はありません</div>'}</div>
     <h2>飛ばし中（${skipped.length}組）</h2><div class="grid">${skipped.map(rowHtml).join('') || '<div class="row" style="color:#8a93a6">飛ばし中の組はありません</div>'}</div>
     <details style="margin-top:12px"><summary style="font-weight:800;color:#5a6378;padding:8px 4px">入室済み（${done.length}組）</summary><div class="grid">${done.map(doneHtml).join('')}</div></details>`;
@@ -261,8 +256,7 @@ function renderCheck() {
   const info = `<div style="font-size:20px;font-weight:800;margin-top:6px">${label(t)}</div>`;
   let cls, text, btn = '';
   if (isDone(t)) { cls = 'ok'; text = '入室済み ✔'; }
-  else if (t.status === 'called') { cls = 'warn'; text = '呼び出し中（まだ入室していません）'; btn = `<button class="full btn-ok" style="min-height:60px;font-size:20px" data-a="enter" data-id="${t.id}">入室済みにする</button>`; }
-  else if (t.status === 'skipped') { cls = 'warn'; text = '飛ばし中（順番を飛ばしています）'; }
+  else if (t.status === 'called') { cls = 'warn'; text = isSkipped(t) ? '飛ばし中（呼び出したまま、順番を後ろにしています）' : '呼び出し中（まだ入室していません）'; btn = `<button class="full btn-ok" style="min-height:60px;font-size:20px" data-a="enter" data-id="${t.id}">入室済みにする</button>`; }
   else if (t.status === 'waiting') { cls = 'none'; text = 'まだ呼び出していません（順番待ち）'; }
   else { cls = 'bad'; text = t.status === 'cancelled' ? '無効です（キャンセル）' : '無効です（欠席）'; }
   box.innerHTML = `<div class="check ${cls}"><div class="n">${t.number}</div><div class="s">${text}</div>${info}</div>${detailHtml(t)}${btn}`;
@@ -276,7 +270,7 @@ function renderHist() {
   const q = $('hq').value.trim();
   $('hchips').innerHTML = H_FILTERS.map(([k, n]) => `<button data-f="${k}" class="chip ${hFilter === k ? 'on' : ''}">${n}</button>`).join('');
   let ls = list.slice().sort((a, b) => b.number - a.number);
-  if (hFilter === 'live') ls = ls.filter(t => t.status === 'waiting' || t.status === 'called' || t.status === 'skipped');
+  if (hFilter === 'live') ls = ls.filter(t => t.status === 'waiting' || t.status === 'called');
   if (hFilter === 'done') ls = ls.filter(isDone);
   if (hFilter === 'bad') ls = ls.filter(isInvalid);
   if (q) ls = ls.filter(t => String(t.number) === q.replace(/[^0-9]/g, '') || (t.name || '').includes(q));
@@ -299,7 +293,7 @@ $('gearBtn').onclick = () => {
        <input id="stopReason" type="text" placeholder="停止の理由（例：休憩中）"><input id="reopenAt" type="text" placeholder="再開の予定（例：14:30ごろ）">
        <button id="stopBtn" class="full btn-bad" style="min-height:56px">発券を停止する</button>`;
   if ($('stopBtn')) $('stopBtn').onclick = () => {
-    const w = list.filter(t => isActive(t) || isSkipped(t)).length;
+    const w = list.filter(isActive).length;
     if (w > 0 && !confirm(`整理券を持っている組が、まだ${w}組います。停止しますか？`)) return;
     counter().set({ closed: true, closedReason: $('stopReason').value.trim(), reopenAt: $('reopenAt').value.trim() }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
   };
@@ -330,7 +324,7 @@ $('resetBtn').onclick = async () => {
   catch (e) { alert('リセットできませんでした：' + e.message); }
 };
 $('csvBtn').onclick = () => {
-  const st = { waiting: '順番待ち', called: '呼び出し中', inroom: '入室済み', guided: '入室済み', absent: '欠席', skipped: '飛ばし中', cancelled: 'キャンセル' };
+  const st = { waiting: '順番待ち', called: '呼び出し中', inroom: '入室済み', guided: '入室済み', absent: '欠席', cancelled: 'キャンセル' };
   const rows = [['番号', 'ニックネーム', '人数', '状態', '発行時刻', '呼び出し時刻', '入室時刻', '無効の理由', '待った時間（分）', 'テスト']].concat(
     list.map(t => [t.number, t.name || '', t.people, st[t.status] || t.status, fmtT(t.createdAt), fmtT(t.calledAt), fmtT(t.enteredAt), reasonOf(t), t.createdAt && (t.calledAt || endOf(t)) ? Math.round(((t.calledAt || endOf(t)) - t.createdAt) / 60000) : '', t.test ? 'テスト' : '']));
   const text = '\ufeff' + rows.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(',')).join('\r\n');
@@ -342,9 +336,15 @@ $('logoutBtn').onclick = () => auth.signOut().then(() => location.reload());
 $('loginBtn').onclick = () => auth.signInWithEmailAndPassword($('email').value, $('pass').value).catch(() => alert('ログインできませんでした。メールアドレスとパスワードを確認してください。'));
 auth.onAuthStateChanged(u => {
   $('login').hidden = !!u; $('app').hidden = !u;
-  if (u && !unsub) {
-    unsub = watchTickets((l, cached) => { list = l; cachedSince = cached ? (cachedSince || Date.now()) : 0; updateOffline(); render(); });
-    counter().onSnapshot(d => { cfg = d.exists ? d.data() : {}; render(); });
-  }
+  if (u) startWatch();
 });
+
+function startWatch() {
+  if (unsub) unsub(); if (unsubCnt) unsubCnt();
+  unsub = watchTickets((l, cached) => { list = l; cachedSince = cached ? (cachedSince || Date.now()) : 0; updateOffline(); render(); });
+  unsubCnt = counter().onSnapshot(d => { cfg = d.exists ? d.data() : {}; render(); });
+}
+// 別のアプリから戻ったときや、通信が復活したときは、つなぎ直して最新の状態を取り直す
+document.addEventListener('visibilitychange', () => { if (!document.hidden && auth.currentUser) startWatch(); });
+addEventListener('online', () => { if (auth.currentUser) startWatch(); });
 </script></body></html>
