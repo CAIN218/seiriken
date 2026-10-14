@@ -1,17 +1,16 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>整理券 スタッフ</title><link rel="stylesheet" href="style.css"></head>
-<body><main style="max-width:720px">
-<h1>スタッフ画面</h1>
+<body><header>スタッフ画面</header><main style="max-width:760px">
 <div id="login" class="card" hidden>
-  <input id="email" type="email" placeholder="メール" style="width:100%;padding:10px;margin-bottom:8px">
-  <input id="pass" type="password" placeholder="パスワード" style="width:100%;padding:10px;margin-bottom:8px">
-  <button id="loginBtn" style="width:100%">ログイン</button>
+  <input id="email" type="email" placeholder="メール">
+  <input id="pass" type="password" placeholder="パスワード">
+  <button id="loginBtn" class="wide">ログイン</button>
 </div>
 <div id="panel" hidden>
-  <div class="card"><button id="callNext" style="width:100%;font-size:1.2rem">次の組を案内する</button>
+  <div class="card"><button id="callNext" class="wide">次の組を案内する</button>
   <p class="sub" id="info"></p>
-  <label><input type="checkbox" id="closed"> 発券を停止する</label></div>
+  <label class="toggle"><input type="checkbox" id="closedBox"> 発券を停止する</label></div>
   <div class="card"><table id="tbl"></table></div>
 </div>
 </main>
@@ -35,18 +34,19 @@ callNext.onclick = () => {
   if (t.status === 'waiting' && !confirm(`${t.number}番はまだ到着していません。案内しますか？`)) return;
   upd(t.id, { status: 'guided', guidedAt: Date.now() });
 };
-closed.onchange = () => db.collection('counters').doc(today()).set({ closed: closed.checked }, { merge: true });
+closedBox.onchange = () => db.collection('counters').doc(today()).set({ closed: closedBox.checked }, { merge: true }).catch(() => { alert('変更できませんでした'); closedBox.checked = !closedBox.checked; });
+db.collection('counters').doc(today()).onSnapshot(d => { closedBox.checked = !!(d.exists && d.data().closed); });
 
 function render() {
   const act = list.filter(isActive);
-  info.textContent = `案内中: ${currentNumber(list) ?? '—'} ／ 待ち ${act.length} 組`;
-  tbl.innerHTML = '<tr><th>番号</th><th>人数</th><th>状態</th><th></th></tr>' + act.map((t, i) => `
-    <tr><td><b>${t.number}</b></td><td>${t.people}名</td>
-    <td><span class="tag ${t.status}">${t.status === 'arrived' ? '到着済み' : (i < WAITING_ROOM ? '呼出し圏内' : '待ち')}</span></td>
-    <td>${t.status === 'waiting' ? `<button class="small" data-a="arrive" data-id="${t.id}">来ました</button>` : ''}
+  info.innerHTML = `案内中 <b>${currentNumber(list) ?? '—'}</b> ／ 待ち <b>${act.length}</b> 組`;
+  tbl.innerHTML = '<tr><th>番号</th><th>人数</th><th>状態</th><th>操作</th></tr>' + act.map((t, i) => `
+    <tr><td><span class="num">${t.number}</span></td><td>${t.people}名</td>
+    <td><span class="pill ${t.status === 'arrived' ? 'ok' : (i < WAITING_ROOM ? 'warn' : '')}">${t.status === 'arrived' ? '到着済み' : (i < WAITING_ROOM ? '呼出し圏内' : '待ち')}</span></td>
+    <td><div class="actions">${t.status === 'waiting' ? `<button class="small" data-a="arrive" data-id="${t.id}">来ました</button>` : ''}
     ${t.status === 'waiting' ? `<button class="small ghost" data-a="renotify" data-id="${t.id}">再通知</button>` : ''}
     <button class="small ghost" data-a="skip" data-id="${t.id}">飛ばす</button>
-    <button class="small ghost" data-a="absent" data-id="${t.id}">欠席</button></td></tr>`).join('');
+    <button class="small ghost" data-a="absent" data-id="${t.id}">欠席</button></div></td></tr>`).join('');
   tbl.querySelectorAll('button').forEach(b => b.onclick = () => {
     const id = b.dataset.id, a = b.dataset.a;
     if (a === 'arrive') upd(id, { status: 'arrived' });
