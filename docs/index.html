@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="stylesheet" href="customer.css?v=10"></head>
+<title>整理券</title><link rel="stylesheet" href="customer.css?v=11"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=10"></script><script src="common.js?v=10"></script>
+<script src="firebase-config.js?v=11"></script><script src="common.js?v=11"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -110,7 +110,6 @@ function viewIssue() {
 function viewTicket() {
   const li = line(), idx = li.indexOf(me.number);
   const ahead = idx >= 0 ? idx : li.filter(n => n < me.number).length;
-  const moved = me.status === 'waiting' && me.orderKey != null && me.orderKey !== me.number;
   const who = esc([me.name, me.people + '名'].filter(Boolean).join('　'));
   const numBlock = (label) => `<div class="c"><div class="lab">${label}</div><div class="num">${me.number}</div><div class="small">${who}</div></div>`;
   const another = TEST ? '<div class="c"><button class="linkbtn" id="another">別の整理券を発行する（テスト用）</button></div>' : '';
@@ -129,6 +128,7 @@ function viewTicket() {
       <div class="small c">このあとは、スタッフの案内に従ってください。</div>`,
       '<button class="btn sub" id="again">新しい整理券を発行する</button>');
   }
+  if (me.status === 'skipped') return shell('wait', numBlock('あなたの番号') + '<div class="h1 c">順番をいったん<br>飛ばしました</div><p class="p c">会場に着いたら、スタッフにお声がけください。順番が来たときに、改めてご案内します。</p>', cancelBtn());
   if (me.status === 'cancelled') return shell('end', numBlock('あなたの番号') + '<div class="h1 c">キャンセルしました</div>', '<button class="btn sub" id="again">新しい整理券を発行する</button>');
   if (me.status === 'absent') return shell('end', numBlock('あなたの番号') + '<div class="h1 c">この整理券は<br>無効になりました</div><p class="p c">ご利用の場合は、スタッフにお声がけください。</p>', '<button class="btn sub" id="again">新しい整理券を発行する</button>');
 
@@ -139,7 +139,7 @@ function viewTicket() {
     ? `<div class="h1 c">会場へお越しください</div>${numBlock('あなたの番号')}<div class="c"><div class="huge">${ahead === 0 ? '次です' : 'あと' + ahead + '<span class="h1">組</span>'}</div><div class="p">まもなくお呼びします</div></div>`
     : `${numBlock('あなたの番号')}<div class="c"><div class="huge">あと${ahead}<span class="h1">組</span></div><div class="p">目安：${eta}ごろ</div></div>
        <div class="card p">${eta}ごろに、会場へお戻りください。この画面を開いたままにしておくと、音でもお知らせします。</div>`;
-  return shell(soon ? 'soon' : 'wait', top + (moved ? '<div class="small c">※順番が後ろになりました（番号は変わりません）</div>' : ''),
+  return shell(soon ? 'soon' : 'wait', top + '',
     notifyBtn() + stubHtml(false) + cancelBtn() + another);
 }
 

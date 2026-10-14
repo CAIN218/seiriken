@@ -1,7 +1,6 @@
 firebase.initializeApp(window.FIREBASE_CONFIG);
 const db = firebase.firestore();
 const WAITING_ROOM = window.WAITING_ROOM;
-const BACK_COUNT = window.BACK_COUNT || 3;
 const CALL_TIMEOUT_SEC = window.CALL_TIMEOUT_SEC || 300;
 const DEFAULT_GAP_SEC = window.DEFAULT_GAP_SEC || 180;
 const ALERT_MIN = window.ALERT_MIN || 5;
@@ -12,7 +11,7 @@ function today() {
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-// 状態: waiting(順番待ち) → called(呼び出し中) → inroom(入室済み・ここで完了) / absent(欠席) / cancelled(取り消し)。guided は旧バージョンの名前で、inroom と同じ扱い
+// 状態: waiting(順番待ち) → called(呼び出し中)、skipped(飛ばし中。順番待ちの列から外れて別枠で待つ) → inroom(入室済み・ここで完了) / absent(欠席) / cancelled(取り消し)。guided は旧バージョンの名前で、inroom と同じ扱い
 const isActive = t => t.status === 'waiting';                       // 順番待ち
 const inLine = t => t.status === 'waiting';                         // 呼び出しの順番に並ぶ組
 const inRoom = t => t.status === 'called';                         // 呼び出し中の組（入室したら完了）

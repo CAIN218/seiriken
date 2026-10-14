@@ -11,7 +11,7 @@ service cloud.firestore {
         && (!('name' in request.resource.data) || request.resource.data.name.size() <= 12);
       // お客さんは、順番待ちの券の取り消しと、呼び出し中の券のもぎり（入室）だけ可
       allow update: if request.auth != null
-        || (resource.data.status == 'waiting' && request.resource.data.status == 'cancelled'
+        || (resource.data.status in ['waiting', 'skipped'] && request.resource.data.status == 'cancelled'
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy']))
         || (resource.data.status == 'called' && request.resource.data.status == 'inroom'
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'enteredAt', 'torn']));
