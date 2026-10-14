@@ -1,18 +1,18 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>案内状況</title><link rel="stylesheet" href="style.css">
-<style>main{max-width:none;text-align:center}.huge{font-size:12vw;font-weight:700;line-height:1.1}.row{display:flex;gap:4vw;justify-content:center}.row>div{flex:1}</style></head>
-<body><main><div class="row"><div class="card"><div class="sub" style="font-size:2.5vw">案内中</div><div class="huge" id="cur">—</div></div>
-<div class="card"><div class="sub" style="font-size:2.5vw">次の番号</div><div class="huge" id="next">—</div></div>
-<div class="card"><div class="sub" style="font-size:2.5vw">待ち</div><div class="huge" id="wait">0</div><div class="sub" style="font-size:2.5vw">組</div></div></div></main>
+<title>案内状況</title><link rel="stylesheet" href="style.css?v=3">
+<style>main{max-width:1100px;text-align:center}.huge{font-size:clamp(4rem,18vw,14rem);font-weight:800;line-height:1}.chip{font-size:clamp(1.6rem,6vw,4rem);padding:8px 24px}.lab{font-size:clamp(1rem,3vw,2rem);font-weight:700;color:var(--sub)}</style></head>
+<body><main>
+<div class="card"><div class="lab">現在案内中</div><div class="huge" id="cur">—</div></div>
+<div class="card"><div class="lab">これから案内する番号</div><div class="chips" id="up"></div><div class="lab" style="margin-top:12px">待ち <span id="wait">0</span> 組</div></div>
+</main>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js"></script><script src="common.js"></script>
+<script src="firebase-config.js?v=3"></script><script src="common.js?v=3"></script>
 <script>
 watchTickets(list => {
-  const act = list.filter(isActive);
-  cur.textContent = currentNumber(list) ?? '—';
-  next.textContent = act[0] ? act[0].number : '—';
-  wait.textContent = act.length;
+  document.getElementById('cur').textContent = currentNumber(list) ?? '—';
+  document.getElementById('up').innerHTML = upcoming(list, 8).map(t => `<span class="chip">${t.number}</span>`).join('') || '<span class="lab">なし</span>';
+  document.getElementById('wait').textContent = list.filter(isActive).length;
 });
 </script></body></html>

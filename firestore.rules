@@ -5,7 +5,8 @@ service cloud.firestore {
     match /tickets/{id} {
       allow read: if true;
       allow create: if request.resource.data.status == 'waiting'
-        && request.resource.data.people in [1, 2];
+        && request.resource.data.people in [1, 2]
+        && (!('name' in request.resource.data) || request.resource.data.name.size() <= 12);
       allow update, delete: if request.auth != null;
     }
     match /counters/{day} {

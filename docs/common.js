@@ -16,6 +16,10 @@ function watchTickets(cb) {
   });
 }
 const isActive = t => t.status === 'waiting' || t.status === 'arrived';
+// 案内の順番に並ぶ組（飛ばし中を除く）
+const inLine = t => isActive(t) && !t.skipped;
+// これから案内する番号（先頭からn組）
+function upcoming(list, n) { return list.filter(inLine).slice(0, n); }
 
 // 現在案内中の番号（最後に案内した組）
 function currentNumber(list) {
@@ -24,7 +28,7 @@ function currentNumber(list) {
 }
 // 自分より前の有効な組数
 function aheadOf(list, t) {
-  return list.filter(x => isActive(x) && x.number < t.number).length;
+  return list.filter(x => inLine(x) && x.number < t.number).length;
 }
 
 function beep() {

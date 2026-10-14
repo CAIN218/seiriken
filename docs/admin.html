@@ -1,65 +1,99 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="style.css"></head>
-<body><header>スタッフ画面</header><main style="max-width:760px">
+<title>整理券 スタッフ</title><link rel="stylesheet" href="style.css?v=3"></head>
+<body><header>スタッフ画面</header><main>
 <div id="login" class="card" hidden>
-  <input id="email" type="email" placeholder="メール">
-  <input id="pass" type="password" placeholder="パスワード">
+  <input id="email" type="email" placeholder="メール" autocomplete="username">
+  <input id="pass" type="password" placeholder="パスワード" autocomplete="current-password">
   <button id="loginBtn" class="wide">ログイン</button>
 </div>
 <div id="panel" hidden>
-  <div class="card"><button id="callNext" class="wide">次の組を案内する</button>
-  <p class="sub" id="info"></p>
-  <label class="toggle"><input type="checkbox" id="closedBox"> 発券を停止する</label></div>
-  <div class="card"><table id="tbl"></table></div>
+  <div class="row2 gap">
+    <div class="card center"><div class="label">案内中</div><div class="big" id="cur">—</div></div>
+    <div class="card center"><div class="label">待ち</div><div class="big" id="waitN">0</div><div class="sub">組</div></div>
+  </div>
+  <div class="card">
+    <button id="callNext" class="wide">次の組を案内する</button>
+    <p class="sub" id="nextInfo" style="margin:8px 0 0"></p>
+  </div>
+  <div class="card">
+    <div class="actions" style="align-items:center;justify-content:space-between">
+      <div>発券: <span id="openPill" class="pill ok">受付中</span></div>
+      <button id="toggleOpen" class="small ghost">発券を停止する</button>
+    </div>
+  </div>
+  <div class="card"><h2>待っている組</h2><div id="line"></div></div>
+  <div class="card" id="skipCard" hidden><h2>飛ばし中（到着したら優先して案内）</h2><div id="skipped"></div></div>
 </div>
+<p class="sub center" style="margin-top:24px">v3</p>
 </main>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js"></script><script src="common.js"></script>
+<script src="firebase-config.js?v=3"></script><script src="common.js?v=3"></script>
 <script>
 const auth = firebase.auth();
-let list = [], unsub = null;
-const upd = (id, data) => db.collection('tickets').doc(id).update(data);
+let list = [], unsub = null, isOpen = true;
+const $ = id => document.getElementById(id);
+const upd = (id, data) => db.collection('tickets').doc(id).update(data).catch(e => alert('更新できませんでした: ' + e.message));
+const counter = () => db.collection('counters').doc(today());
 
-loginBtn.onclick = () => auth.signInWithEmailAndPassword(email.value, pass.value).catch(() => alert('ログインできません'));
+$('loginBtn').onclick = () => auth.signInWithEmailAndPassword($('email').value, $('pass').value).catch(() => alert('ログインできません'));
 auth.onAuthStateChanged(u => {
-  login.hidden = !!u; panel.hidden = !u;
-  if (u && !unsub) unsub = watchTickets(l => { list = l; render(); });
+  $('login').hidden = !!u; $('panel').hidden = !u;
+  if (u && !unsub) {
+    unsub = watchTickets(l => { list = l; render(); });
+    counter().onSnapshot(d => { isOpen = !(d.exists && d.data().closed); renderOpen(); });
+  }
 });
-callNext.onclick = () => {
-  const t = list.filter(isActive)[0];
-  if (!t) return alert('待っている組はいません');
-  if (t.status === 'waiting' && !confirm(`${t.number}番はまだ到着していません。案内しますか？`)) return;
+
+$('callNext').onclick = () => {
+  const t = list.find(inLine);
+  if (!t) return alert('案内できる組はいません');
+  if (t.status === 'waiting' && !confirm(`${t.number}番${t.name ? '（' + t.name + '）' : ''}はまだ到着していません。案内しますか？`)) return;
   upd(t.id, { status: 'guided', guidedAt: Date.now() });
 };
-closedBox.onchange = () => db.collection('counters').doc(today()).set({ closed: closedBox.checked }, { merge: true }).catch(() => { alert('変更できませんでした'); closedBox.checked = !closedBox.checked; });
-db.collection('counters').doc(today()).onSnapshot(d => { closedBox.checked = !!(d.exists && d.data().closed); });
+$('toggleOpen').onclick = () => {
+  const next = isOpen; // 受付中なら停止にする
+  counter().set({ closed: next }, { merge: true }).catch(e => alert('変更できませんでした: ' + e.message));
+};
+function renderOpen() {
+  $('openPill').textContent = isOpen ? '受付中' : '停止中';
+  $('openPill').className = 'pill ' + (isOpen ? 'ok' : 'bad');
+  $('toggleOpen').textContent = isOpen ? '発券を停止する' : '発券を再開する';
+  $('toggleOpen').className = 'small ' + (isOpen ? 'ghost' : 'danger');
+}
+const label = t => `${t.name ? esc(t.name) + ' ' : ''}<span class="sub">${t.people}名</span>`;
 
 function render() {
-  const act = list.filter(isActive);
-  info.innerHTML = `案内中 <b>${currentNumber(list) ?? '—'}</b> ／ 待ち <b>${act.length}</b> 組`;
-  tbl.innerHTML = '<tr><th>番号</th><th>人数</th><th>状態</th><th>操作</th></tr>' + act.map((t, i) => `
-    <tr><td><span class="num">${t.number}</span></td><td>${t.people}名</td>
-    <td><span class="pill ${t.status === 'arrived' ? 'ok' : (i < WAITING_ROOM ? 'warn' : '')}">${t.status === 'arrived' ? '到着済み' : (i < WAITING_ROOM ? '呼出し圏内' : '待ち')}</span></td>
-    <td><div class="actions">${t.status === 'waiting' ? `<button class="small" data-a="arrive" data-id="${t.id}">来ました</button>` : ''}
-    ${t.status === 'waiting' ? `<button class="small ghost" data-a="renotify" data-id="${t.id}">再通知</button>` : ''}
-    <button class="small ghost" data-a="skip" data-id="${t.id}">飛ばす</button>
-    <button class="small ghost" data-a="absent" data-id="${t.id}">欠席</button></div></td></tr>`).join('');
-  tbl.querySelectorAll('button').forEach(b => b.onclick = () => {
-    const id = b.dataset.id, a = b.dataset.a;
-    if (a === 'arrive') upd(id, { status: 'arrived' });
-    if (a === 'renotify') upd(id, { reNotifiedAt: Date.now() });
-    if (a === 'absent' && confirm('欠席にしますか？')) upd(id, { status: 'absent' });
-    if (a === 'skip') { // 番号を最後尾の番号に付け替えて後ろに回す
-      db.runTransaction(async tx => {
-        const ref = db.collection('counters').doc(today()), c = await tx.get(ref);
-        const n = c.data().last + 1;
-        tx.set(ref, { last: n }, { merge: true });
-        tx.update(db.collection('tickets').doc(id), { number: n, status: 'waiting' });
-      });
-    }
-  });
+  const act = list.filter(isActive), line = act.filter(inLine), skipped = act.filter(t => t.skipped);
+  $('cur').textContent = currentNumber(list) ?? '—';
+  $('waitN').textContent = act.length;
+  const nx = line[0];
+  $('callNext').disabled = !nx;
+  $('callNext').textContent = nx ? `次の組を案内する（${nx.number}番）` : '案内できる組はいません';
+  $('nextInfo').textContent = nx ? `${nx.name || ''} ${nx.people}名 ・ ${nx.status === 'arrived' ? '待機室に到着済み' : 'まだ到着していません'}` : '';
+  $('line').innerHTML = line.length ? line.map((t, i) => `<div class="item"><div class="top">
+      <span class="num">${t.number}</span><span class="who">${label(t)}</span>
+      <span class="pill ${t.status === 'arrived' ? 'ok' : (i < WAITING_ROOM ? 'warn' : '')}">${t.status === 'arrived' ? '到着済み' : (i < WAITING_ROOM ? '呼出し圏内' : '待ち')}</span></div>
+      <div class="actions">${t.status === 'waiting' ? `<button class="small ok" data-a="arrive" data-id="${t.id}">来ました</button><button class="small ghost" data-a="renotify" data-id="${t.id}">再通知</button>` : `<button class="small ghost" data-a="back" data-id="${t.id}">未到着に戻す</button>`}
+      <button class="small ghost" data-a="skip" data-id="${t.id}">飛ばす</button>
+      <button class="small ghost" data-a="absent" data-id="${t.id}">欠席</button></div></div>`).join('') : '<p class="sub">待っている組はいません</p>';
+  $('skipCard').hidden = !skipped.length;
+  $('skipped').innerHTML = skipped.map(t => `<div class="item"><div class="top"><span class="num">${t.number}</span><span class="who">${label(t)}</span></div>
+      <div class="actions"><button class="small ok" data-a="guide" data-id="${t.id}">今すぐ案内する</button>
+      <button class="small ghost" data-a="unskip" data-id="${t.id}">順番に戻す</button>
+      <button class="small ghost" data-a="absent" data-id="${t.id}">欠席</button></div></div>`).join('');
 }
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-a]'); if (!b) return;
+  const id = b.dataset.id, a = b.dataset.a;
+  if (a === 'arrive') upd(id, { status: 'arrived' });
+  if (a === 'back') upd(id, { status: 'waiting' });
+  if (a === 'renotify') upd(id, { reNotifiedAt: Date.now() });
+  if (a === 'skip') upd(id, { skipped: true, status: 'waiting' });      // 順番から外す（番号は変えない）
+  if (a === 'unskip') upd(id, { skipped: false });
+  if (a === 'guide') upd(id, { status: 'guided', skipped: false, guidedAt: Date.now() });
+  if (a === 'absent' && confirm('欠席にしますか？')) upd(id, { status: 'absent', skipped: false });
+});
 </script></body></html>
