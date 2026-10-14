@@ -26,6 +26,10 @@ function currentNumber(list) {
   const g = list.filter(t => t.status === 'guided').sort((a, b) => b.guidedAt - a.guidedAt)[0];
   return g ? g.number : null;
 }
+// 現在案内中の組（最後に案内した組）
+function currentTicket(list) {
+  return list.filter(t => t.status === 'guided').sort((a, b) => b.guidedAt - a.guidedAt)[0] || null;
+}
 // 自分より前の有効な組数
 function aheadOf(list, t) {
   return list.filter(x => inLine(x) && x.number < t.number).length;

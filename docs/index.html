@@ -1,13 +1,14 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>整理券</title><link rel="stylesheet" href="style.css?v=3"></head>
+<title>整理券</title><link rel="stylesheet" href="style.css?v=4"></head>
 <body><header>整理券</header><main>
 <div id="app"><p class="sub center">読み込み中…</p></div>
 <p class="sub center">この画面を開いたままにしてください。順番が近づくと音・振動・表示でお知らせします（画面を閉じている間は届きません）。</p>
+<p class="sub center">v4</p>
 </main>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=3"></script><script src="common.js?v=3"></script>
+<script src="firebase-config.js?v=4"></script><script src="common.js?v=4"></script>
 <script>
 const KEY = 'seiriken-' + today();
 let myId = null, people = 1, nick = '', list = [], state = {}, closedFlag = false;
@@ -16,6 +17,7 @@ const app = document.getElementById('app');
 
 async function issue() {
   const name = nick.trim().slice(0, 12);
+  if (!name) throw new Error('noname');
   const ref = db.collection('counters').doc(today());
   const newRef = db.collection('tickets').doc();
   await db.runTransaction(async tx => {
@@ -42,17 +44,17 @@ function render() {
   const me = list.find(t => t.id === myId);
   const up = upcoming(list, 5);
   if (!me) {
-    app.innerHTML = `${closedFlag ? '<div class="alert bad">現在、整理券の発行を停止しています</div>' : ''}
+    app.innerHTML = `${closedFlag ? '<div class="banner stop">現在、整理券の発行を停止しています</div>' : ''}
       ${status(cur, up, null)}
-      <div class="card"><h2>整理券を発行する</h2>
-      <div class="label">ニックネーム（呼び出し用・任意）</div>
-      <input type="text" id="nick" maxlength="12" placeholder="例: たろう" value="${esc(nick)}" autocomplete="off">
+      <div class="card ${closedFlag ? 'off' : ''}"><h2>整理券を発行する</h2>
+      <div class="label">ニックネーム（必須・呼び出し用）</div>
+      <input type="text" id="nick" maxlength="12" placeholder="例: たろう" value="${esc(nick)}" autocomplete="off" ${closedFlag ? 'disabled' : ''}>
       <div class="label">人数</div><div class="seg">
       <button data-p="1" class="${people===1?'on':''}">1人</button><button data-p="2" class="${people===2?'on':''}">2人</button></div>
       <button id="issue" class="wide" ${closedFlag ? 'disabled' : ''}>整理券を発行する</button></div>`;
     const ni = document.getElementById('nick'); ni.oninput = () => { nick = ni.value; };
     app.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { people = +b.dataset.p; render(); });
-    document.getElementById('issue').onclick = e => { e.target.disabled = true; issue().catch(err => { alert(err.message === 'closed' ? '現在、発券を停止しています' : '発行に失敗しました。もう一度お試しください'); e.target.disabled = false; }); };
+    document.getElementById('issue').onclick = e => { e.target.disabled = true; issue().catch(err => { alert(err.message === 'closed' ? '現在、発券を停止しています' : err.message === 'noname' ? 'ニックネームを入力してください' : '発行に失敗しました。もう一度お試しください'); e.target.disabled = false; }); };
     return;
   }
   const ahead = aheadOf(list, me);

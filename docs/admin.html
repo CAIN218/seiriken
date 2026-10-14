@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="style.css?v=3"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="style.css?v=4"></head>
 <body><header>スタッフ画面</header><main>
 <div id="login" class="card" hidden>
   <input id="email" type="email" placeholder="メール" autocomplete="username">
@@ -8,10 +8,9 @@
   <button id="loginBtn" class="wide">ログイン</button>
 </div>
 <div id="panel" hidden>
-  <div class="row2 gap">
-    <div class="card center"><div class="label">案内中</div><div class="big" id="cur">—</div></div>
-    <div class="card center"><div class="label">待ち</div><div class="big" id="waitN">0</div><div class="sub">組</div></div>
-  </div>
+  <div id="stopBanner" class="banner stop" hidden>発券停止中（お客さんは新しく発券できません）</div>
+  <div class="nowbox"><div class="l">現在案内中</div><div class="n" id="cur">—</div><div class="w" id="curWho">&nbsp;</div></div>
+  <div class="nextbox"><div class="label">次に案内</div><div class="n" id="nxNum">—</div><div id="nxWho" style="flex:1"></div><div class="sub">待ち <b id="waitN">0</b> 組</div></div>
   <div class="card">
     <button id="callNext" class="wide">次の組を案内する</button>
     <p class="sub" id="nextInfo" style="margin:8px 0 0"></p>
@@ -25,12 +24,12 @@
   <div class="card"><h2>待っている組</h2><div id="line"></div></div>
   <div class="card" id="skipCard" hidden><h2>飛ばし中（到着したら優先して案内）</h2><div id="skipped"></div></div>
 </div>
-<p class="sub center" style="margin-top:24px">v3</p>
+<p class="sub center" style="margin-top:24px">v4</p>
 </main>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=3"></script><script src="common.js?v=3"></script>
+<script src="firebase-config.js?v=4"></script><script src="common.js?v=4"></script>
 <script>
 const auth = firebase.auth();
 let list = [], unsub = null, isOpen = true;
@@ -60,6 +59,8 @@ $('toggleOpen').onclick = () => {
 function renderOpen() {
   $('openPill').textContent = isOpen ? '受付中' : '停止中';
   $('openPill').className = 'pill ' + (isOpen ? 'ok' : 'bad');
+  $('stopBanner').hidden = isOpen;
+  document.body.style.background = isOpen ? '' : '#e9d5d5';
   $('toggleOpen').textContent = isOpen ? '発券を停止する' : '発券を再開する';
   $('toggleOpen').className = 'small ' + (isOpen ? 'ghost' : 'danger');
 }
@@ -67,9 +68,13 @@ const label = t => `${t.name ? esc(t.name) + ' ' : ''}<span class="sub">${t.peop
 
 function render() {
   const act = list.filter(isActive), line = act.filter(inLine), skipped = act.filter(t => t.skipped);
-  $('cur').textContent = currentNumber(list) ?? '—';
+  const ct = currentTicket(list);
+  $('cur').textContent = ct ? ct.number : '—';
+  $('curWho').innerHTML = ct ? `${ct.name ? esc(ct.name) + ' ' : ''}${ct.people}名` : '&nbsp;';
   $('waitN').textContent = act.length;
   const nx = line[0];
+  $('nxNum').textContent = nx ? nx.number : '—';
+  $('nxWho').innerHTML = nx ? `${label(nx)}<div><span class="pill ${nx.status === 'arrived' ? 'ok' : 'warn'}">${nx.status === 'arrived' ? '到着済み' : '未到着'}</span></div>` : '<span class="sub">なし</span>';
   $('callNext').disabled = !nx;
   $('callNext').textContent = nx ? `次の組を案内する（${nx.number}番）` : '案内できる組はいません';
   $('nextInfo').textContent = nx ? `${nx.name || ''} ${nx.people}名 ・ ${nx.status === 'arrived' ? '待機室に到着済み' : 'まだ到着していません'}` : '';
