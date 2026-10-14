@@ -1,6 +1,9 @@
 firebase.initializeApp(window.FIREBASE_CONFIG);
 const db = firebase.firestore();
 const WAITING_ROOM = window.WAITING_ROOM;
+const CALL_TIMEOUT_SEC = window.CALL_TIMEOUT_SEC || 300;
+const DEFAULT_GAP_SEC = window.DEFAULT_GAP_SEC || 180;
+const ALERT_MIN = window.ALERT_MIN || 5;
 
 function today() {
   const d = new Date(Date.now() + 9 * 3600 * 1000); // JST
@@ -8,22 +11,26 @@ function today() {
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-// 今日のチケットを番号順で購読。cbには全チケット配列を渡す
-// 状態: waiting(順番待ち) → called(待機室へ呼び出し中) → inroom(待機室に入室) → guided(アトラクションへ案内済み) / absent
+// 状態: waiting(順番待ち) → called(呼び出し中) → inroom(待合スペースに入室) → guided(案内済み) / absent(欠席) / cancelled(取り消し)
+const isActive = t => t.status === 'waiting';                       // 順番待ち
+const inLine = t => t.status === 'waiting';                         // 呼び出しの順番に並ぶ組
+const inRoom = t => t.status === 'called' || t.status === 'inroom'; // 待合スペースの枠を使っている組
+const orderKey = t => (t.orderKey != null ? t.orderKey : t.number); // 順番（後ろに回すと大きくなる。番号は変わらない）
+const byOrder = (a, b) => orderKey(a) - orderKey(b) || a.number - b.number;
+const calledAtOf = t => t.calledAt || t.guidedAt || 0;
+
+// 今日のチケットを購読（スタッフ用）。cbには全チケット配列と、通信が切れているかを渡す
 function watchTickets(cb) {
-  return db.collection('tickets').where('day', '==', today()).onSnapshot(snap => {
+  return db.collection('tickets').where('day', '==', today()).onSnapshot({ includeMetadataChanges: true }, snap => {
     const list = snap.docs.map(d => {
       const t = { id: d.id, ...d.data() };
       if (t.status === 'arrived') t.status = 'inroom'; // 旧バージョンの状態名
       return t;
     }).sort((a, b) => a.number - b.number);
-    cb(list);
+    cb(list, !!(snap.metadata && snap.metadata.fromCache));
   });
 }
-const isActive = t => t.status === 'waiting';                 // 順番待ち
-const inLine = t => t.status === 'waiting' && !t.skipped;      // 呼び出しの順番に並ぶ組（飛ばし中を除く）
-const inRoom = t => t.status === 'called' || t.status === 'inroom'; // 待機室の枠を使っている組
-const calledAtOf = t => t.calledAt || t.guidedAt || 0;
+
 // お客さん・モニター向けの集計（スタッフ画面が書き込む。読み取り回数を減らすため）
 const summaryRef = () => db.collection('summary').doc(today());
 function buildSummary(list) {
@@ -37,40 +44,14 @@ function buildSummary(list) {
   }
   return {
     current: ct ? ct.number : null,
-    line: list.filter(inLine).map(t => t.number),
+    line: list.filter(inLine).sort(byOrder).map(t => t.number),
     waitCount: list.filter(isActive).length,
     roomCount: list.filter(inRoom).length,
     avgGapSec: gaps.length >= 2 ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null
   };
 }
-// これから呼ぶ番号（先頭からn組）
-function upcoming(list, n) { return list.filter(inLine).slice(0, n); }
 // 現在呼び出し中の組（最後に呼んだ組）
 function currentTicket(list) {
   return list.filter(t => t.status === 'called' || t.status === 'inroom' || t.status === 'guided')
     .sort((a, b) => calledAtOf(b) - calledAtOf(a))[0] || null;
-}
-function currentNumber(list) { const t = currentTicket(list); return t ? t.number : null; }
-// 自分より前の順番待ちの組数
-function aheadOf(list, t) {
-  return list.filter(x => inLine(x) && x.number < t.number).length;
-}
-
-function beep() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 0.25].forEach(delay => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
-      o.frequency.value = 880; g.gain.value = 0.2;
-      o.start(ctx.currentTime + delay); o.stop(ctx.currentTime + delay + 0.18);
-    });
-  } catch (e) {}
-}
-function notify(title, body) {
-  beep();
-  if (navigator.vibrate) navigator.vibrate([300, 150, 300, 150, 300]);
-  if ('Notification' in window && Notification.permission === 'granted') {
-    try { new Notification(title, { body }); } catch (e) {}
-  }
 }

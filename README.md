@@ -15,6 +15,11 @@
 4. GitHubの Settings → Pages → Branch: `main` / フォルダ: `/docs` → Save
 5. 公開URL `https://cain218.github.io/seiriken/` をQRコード化して掲示
 
+## 画面のURL
+- お客さん: `https://cain218.github.io/seiriken/`（テスト用: 末尾に `?test=1`。管理メニューの「テスト券を削除」で消せます）
+- スタッフ: `.../admin.html`（スマホ・タブレット向け。開いたままにしておくと全体の状況を更新します）
+- 掲示モニター: `.../board.html`
+
 ## 運用
 - 番号は日付(日本時間)ごとに1から自動リセット。
 - 流れ: 順番待ち → 待機室へ呼び出し → 入室（スタッフが「来ました」）→ 案内完了（枠が空く）。待機室は5組まで。

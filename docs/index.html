@@ -1,62 +1,176 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>整理券</title><link rel="stylesheet" href="style.css?v=7"></head>
-<body><header>整理券</header><main>
-<div id="app"><p class="sub center">読み込み中…</p></div>
-<p class="sub center">この画面を開いたままにしてください。順番が近づくと音・振動・表示でお知らせします（画面を閉じている間は届きません）。</p>
-<p class="sub center">v7</p>
-</main>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>整理券</title><link rel="stylesheet" href="customer.css?v=8"></head>
+<body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=7"></script><script src="common.js?v=7"></script>
+<script src="firebase-config.js?v=8"></script><script src="common.js?v=8"></script>
 <script>
 const KEY = 'seiriken-' + today();
-let dragging = false, pendingRender = false;
-let myId = null, people = 1, nick = '', me = null, sum = {}, cfg = {}, state = {}, unsubMe = null;
-try { myId = localStorage.getItem(KEY); nick = localStorage.getItem('seiriken-nick') || ''; } catch (e) {}
+const TEST = /[?&]test=1/.test(location.search);
+let myId = null, people = 1, nick = '', formErr = '', busy = false;
+let me = null, sum = {}, cfg = {}, st = {}, unsubMe = null, dragging = false, pending = false;
+let soundOn = false;
+try { myId = localStorage.getItem(KEY); nick = localStorage.getItem('seiriken-nick') || ''; soundOn = localStorage.getItem('seiriken-sound') === '1'; } catch (e) {}
 const app = document.getElementById('app');
-const closedFlag = () => !!cfg.closed;
 const line = () => sum.line || [];
+const gapSec = () => sum.avgGapSec || DEFAULT_GAP_SEC;
+const fmtHM = d => d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false });
+const fmtHMS = ms => new Date(ms).toLocaleTimeString('ja-JP', { hour12: false });
+// 戻ってきてほしい時刻（5分単位の目安）
+function etaText(ahead) { const t = Date.now() + (ahead + 1) * gapSec() * 1000; return fmtHM(new Date(Math.round(t / 300000) * 300000)); }
 
+/* ---------- 音・振動 ---------- */
+let actx = null, ringTimer = null, ringSilenced = false;
+function ensureAudio() { try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) {} }
+document.addEventListener('pointerdown', ensureAudio, { passive: true });
+function beep(n) {
+  if (!actx) return;
+  for (let i = 0; i < n; i++) {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.connect(g); g.connect(actx.destination); o.frequency.value = i % 2 ? 660 : 880; g.gain.value = 0.3;
+    const t = actx.currentTime + i * 0.28; o.start(t); o.stop(t + 0.2);
+  }
+}
+const vibrate = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+function note(title, body) { try { if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body }); } catch (e) {} }
+function ring() { if (ringSilenced) return; beep(3); vibrate([400, 150, 400, 150, 400]); }
+function startRing() { stopRing(); ringSilenced = false; ring(); ringTimer = setInterval(ring, 3000); }
+function stopRing() { if (ringTimer) { clearInterval(ringTimer); ringTimer = null; } }
+// 呼び出し中は、画面のどこをタップしても音が止まる
+document.addEventListener('pointerdown', () => { if (ringTimer) ringSilenced = true; }, { passive: true });
+
+/* ---------- データ ---------- */
 function subMe() {
   if (unsubMe) { unsubMe(); unsubMe = null; }
   if (!myId) { me = null; render(); return; }
   const id = myId;
   unsubMe = db.collection('tickets').doc(id).onSnapshot(d => {
-    if (!d.exists) { try { localStorage.removeItem(KEY); } catch (e) {} myId = null; me = null; state = {}; }
+    if (!d.exists) { try { localStorage.removeItem(KEY); } catch (e) {} myId = null; me = null; st = {}; }
     else { me = { id, ...d.data() }; if (me.status === 'arrived') me.status = 'inroom'; }
     render();
   });
 }
-
 async function issue() {
   const name = nick.trim().slice(0, 12);
-  if (!name) throw new Error('noname');
+  if (!name) { formErr = 'ニックネームを入れてください'; render(); return; }
+  if (busy) return; busy = true; formErr = ''; render();
   const ref = db.collection('counters').doc(today());
   const newRef = db.collection('tickets').doc();
-  await db.runTransaction(async tx => {
-    const c = await tx.get(ref);
-    if (c.exists && c.data().closed) throw new Error('closed');
-    const n = (c.exists ? c.data().last || 0 : 0) + 1;
-    tx.set(ref, { last: n }, { merge: true });
-    tx.set(newRef, { day: today(), number: n, name, people, status: 'waiting', createdAt: Date.now() });
-  });
-  myId = newRef.id;
-  try { localStorage.setItem(KEY, myId); localStorage.setItem('seiriken-nick', name); } catch (e) {}
-  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
-  subMe();
+  try {
+    await db.runTransaction(async tx => {
+      const c = await tx.get(ref);
+      if (c.exists && c.data().closed) throw new Error('closed');
+      const n = (c.exists ? c.data().last || 0 : 0) + 1;
+      tx.set(ref, { last: n }, { merge: true });
+      const t = { day: today(), number: n, name, people, status: 'waiting', createdAt: Date.now() };
+      if (TEST) t.test = true;
+      tx.set(newRef, t);
+    });
+    myId = newRef.id;
+    try { localStorage.setItem(KEY, myId); localStorage.setItem('seiriken-nick', name); } catch (e) {}
+    busy = false; subMe();
+  } catch (err) {
+    busy = false; formErr = err.message === 'closed' ? '今は整理券を出せません' : '発券できませんでした。もう一度おしてください'; render();
+  }
+}
+function leave() { try { localStorage.removeItem(KEY); } catch (e) {} myId = null; me = null; st = {}; stopRing(); subMe(); }
+
+/* ---------- 画面 ---------- */
+const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${TEST ? '<div class="banner test">テストモード（本番の記録には残りません）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}</div></div>`; };
+const notifyBtn = () => `<button class="btn sub" id="notif">${soundOn ? '🔔 通知ON（タップでテスト音）' : '🔔 通知をONにする'}</button><div class="small c">iPhoneでは振動しません。画面を開いたままにしてください。</div>`;
+const cancelBtn = () => '<div class="c"><button class="linkbtn" id="cancel">キャンセルする</button></div>';
+const stubHtml = (enabled) => `<div class="stub ${enabled ? '' : 'off'}"><div class="tear" id="${enabled ? 'tear' : 'tearOff'}"><div class="tear-txt">${enabled ? 'スライドして もぎる' : '呼ばれたら もぎれます'}</div><div class="tear-h" ${enabled ? 'id="tearH"' : ''}>✂</div></div></div>`;
+
+function viewIssue() {
+  const wc = sum.waitCount || 0, mins = Math.round(wc * gapSec() / 60);
+  const head = `<div class="card c"><div class="lab">いまの待ち</div><div class="huge">${wc}<span class="h1">組</span></div><div class="p">${wc ? `目安 約${mins}分` : 'すぐご案内できます'}</div></div>`;
+  if (cfg.closed) {
+    return shell('stop', head + `<div class="card c"><div class="h1">いま整理券の発行を<br>おやすみしています</div>
+      ${cfg.closedReason ? `<p class="p">理由: ${esc(cfg.closedReason)}</p>` : ''}
+      ${cfg.reopenAt ? `<p class="p">再開予定: ${esc(cfg.reopenAt)}</p>` : ''}
+      <p class="small">会場の係の人にお声がけください。</p></div>`, '');
+  }
+  return shell('none', head + `<div class="card"><div class="lab">ニックネーム（12文字まで）</div>
+      <input class="field" id="nick" maxlength="12" placeholder="例: たろう" value="${esc(nick)}" autocomplete="off"></div>
+    <div class="card"><div class="lab">人数</div><div class="seg" style="margin-top:8px"><button data-p="1" class="${people === 1 ? 'on' : ''}">1人</button><button data-p="2" class="${people === 2 ? 'on' : ''}">2人</button></div></div>
+    ${formErr ? `<div class="err c">${esc(formErr)}</div>` : ''}`,
+    `<button class="btn" id="issue" ${busy ? 'disabled' : ''}>${busy ? '発券中…' : '発券する'}</button>`);
 }
 
-function ticketHtml(pill, who, wait) {
-  const main = `<div class="tkt-main"><div class="label">あなたの整理券</div><div class="big">${me.number}</div><div>${pill}</div><div class="sub">${esc(who)}</div>${wait}</div>`;
-  let stub;
-  if (me.status === 'called') stub = '<div class="tear" id="tear"><div class="tear-txt">スライドして もぎる →</div><div class="tear-h" id="tearH">✂</div></div><div class="sub center" style="margin-top:8px">待機室の入口で、もぎった画面をスタッフに見せてください</div>';
-  else if (me.status === 'inroom') stub = '<div class="torn"><div class="stamp">もぎり済み</div><div class="clock" id="clock"></div></div>';
-  else if (me.status === 'guided') stub = '<div class="torn"><div class="stamp">使用済み</div></div>';
-  else stub = '<div class="stub-off">呼び出されたら、ここをもぎります</div>';
-  return `<div class="tkt gap">${main}<div class="tkt-perf"></div><div class="tkt-stub">${stub}</div></div>`;
+function viewTicket() {
+  const li = line(), idx = li.indexOf(me.number);
+  const ahead = idx >= 0 ? idx : li.filter(n => n < me.number).length;
+  const moved = me.status === 'waiting' && me.orderKey != null && me.orderKey !== me.number;
+  const who = esc([me.name, me.people + '名'].filter(Boolean).join(' ・ '));
+  const numBlock = (label) => `<div class="c"><div class="lab">${label}</div><div class="num">${me.number}</div><div class="small">${who}</div></div>`;
+  const another = TEST ? '<div class="c"><button class="linkbtn" id="another">別の整理券を発行する（テスト）</button></div>' : '';
+
+  if (me.status === 'called') {
+    return shell('call', `<div class="h1 c">今すぐ入口へ！</div>${numBlock('あなたの番号')}
+      <div class="c"><div class="lab">のこり時間</div><div class="cd" id="cd">--:--</div></div>
+      <div class="p c">入口前の待合スペースに来てください。<br><span class="small">画面をタップすると音が止まります</span></div>`, stubHtml(true));
+  }
+  if (me.status === 'inroom') {
+    return shell('in', `<div class="c"><div class="lab">あなたの番号</div><div class="num">${me.number}</div></div>
+      <div class="c"><div class="stamp">入室済み</div></div>
+      <div class="c"><div class="lab">入室した時刻</div><div class="clock">${me.enteredAt ? fmtHMS(me.enteredAt) : ''}</div><div class="small">いまの時刻</div><div class="clock" id="clk"></div></div>
+      <div class="small c">${who}<br>スタッフの案内をお待ちください</div>`, '');
+  }
+  if (me.status === 'guided') return shell('end', numBlock('あなたの番号') + '<div class="h1 c">ご案内ずみです<br>ありがとうございました</div>', '<button class="btn sub" id="again">新しい整理券を出す</button>');
+  if (me.status === 'cancelled') return shell('end', numBlock('あなたの番号') + '<div class="h1 c">キャンセルしました</div>', '<button class="btn sub" id="again">新しい整理券を出す</button>');
+  if (me.status === 'absent') return shell('end', numBlock('あなたの番号') + '<div class="h1 c">お休みになりました</div><p class="p c">もう一度ご利用の場合は、係の人にお声がけください。</p>', '<button class="btn sub" id="again">新しい整理券を出す</button>');
+
+  // 順番待ち
+  const soon = ahead <= WAITING_ROOM;
+  const eta = etaText(ahead);
+  const top = soon
+    ? `<div class="h1 c">会場へお越しください</div>${numBlock('あなたの番号')}<div class="c"><div class="huge">${ahead === 0 ? '次です' : 'あと' + ahead + '<span class="h1">組</span>'}</div><div class="p">目安 ${eta}ごろ</div></div>`
+    : `${numBlock('あなたの番号')}<div class="c"><div class="huge">あと${ahead}<span class="h1">組</span></div><div class="p">目安 ${eta}ごろ</div></div>
+       <div class="card p">この時刻に会場へ戻ってきてください。画面を開いていれば音でもお知らせします。</div>`;
+  return shell(soon ? 'soon' : 'wait', top + (moved ? '<div class="small c">※ 順番が後ろになりました（番号はそのままです）</div>' : ''),
+    notifyBtn() + stubHtml(false) + cancelBtn() + another);
 }
-// 半券をスライドしてもぎる
+
+function render() {
+  if (dragging || (document.activeElement && document.activeElement.id === 'nick')) { pending = true; return; }
+  if (!me) { app.innerHTML = viewIssue(); wire(); stopRing(); return; }
+  // 状態の変化に合わせて音・振動・通知
+  const li = line(), idx = li.indexOf(me.number), ahead = idx >= 0 ? idx : li.filter(n => n < me.number).length;
+  const key = me.status === 'waiting' ? (ahead <= WAITING_ROOM ? 'soon' : 'wait') : me.status;
+  const changed = st.key !== undefined && st.key !== key;
+  if (changed && key === 'soon') { beep(2); vibrate([300, 150, 300]); note('整理券 ' + me.number, '会場へお越しください'); }
+  if (key === 'called' && (st.key !== 'called')) { startRing(); note('整理券 ' + me.number, '今すぐ入口へお越しください！'); }
+  if (key !== 'called') stopRing();
+  if (me.status === 'called' && me.reNotifiedAt != null && st.re != null && st.re !== me.reNotifiedAt) { startRing(); note('整理券 ' + me.number, 'お待ちしています。至急、入口へお越しください'); }
+  st.re = me.reNotifiedAt != null ? me.reNotifiedAt : null; st.key = key;
+  app.innerHTML = viewTicket();
+  document.title = key === 'called' ? '【入口へ！】整理券' : '整理券';
+  wire(); tick();
+}
+
+function wire() {
+  const $ = id => document.getElementById(id);
+  if ($('nick')) { $('nick').oninput = e => { nick = e.target.value; }; $('nick').onblur = () => { if (pending && !dragging) { pending = false; setTimeout(render, 0); } }; }
+  document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { people = +b.dataset.p; render(); });
+  if ($('issue')) $('issue').onclick = () => { ensureAudio(); issue(); };
+  if ($('notif')) $('notif').onclick = async () => {
+    ensureAudio(); beep(2); soundOn = true;
+    try { localStorage.setItem('seiriken-sound', '1'); } catch (e) {}
+    try { if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {}
+    $('notif').textContent = '🔔 通知ON（タップでテスト音）';
+  };
+  if ($('cancel')) $('cancel').onclick = () => {
+    if (!confirm('整理券をキャンセルします。\nよろしいですか？（元にはもどせません）')) return;
+    db.collection('tickets').doc(me.id).update({ status: 'cancelled', cancelledAt: Date.now() }).catch(() => alert('キャンセルできませんでした'));
+  };
+  if ($('again')) $('again').onclick = leave;
+  if ($('another')) $('another').onclick = () => { if (confirm('この端末の整理券の表示を外して、新しく発券できるようにします。')) leave(); };
+  setupTear();
+}
+
+/* ---------- 半券をもぎる ---------- */
 function setupTear() {
   const tr = document.getElementById('tear'), h = document.getElementById('tearH');
   if (!tr || !h) return;
@@ -67,88 +181,29 @@ function setupTear() {
     if (!drag) return; drag = false;
     if (x >= max * 0.85) { tear(tr); return; }
     h.style.transition = 'transform .2s'; h.style.transform = 'translateX(0)'; tr.style.setProperty('--p', 0);
-    setTimeout(() => { h.style.transition = ''; dragging = false; if (pendingRender) { pendingRender = false; render(); } }, 220);
+    setTimeout(() => { h.style.transition = ''; dragging = false; if (pending) { pending = false; render(); } }, 220);
   };
   h.onpointerup = end; h.onpointercancel = end;
 }
 function tear(tr) {
-  tr.classList.add('tearing');
+  tr.classList.add('tearing'); stopRing();
   db.collection('tickets').doc(me.id).update({ status: 'inroom', enteredAt: Date.now(), torn: true })
-    .then(() => { dragging = false; pendingRender = false; if (navigator.vibrate) navigator.vibrate(80); render(); })
-    .catch(() => { alert('もぎれませんでした。もう一度お試しください'); dragging = false; pendingRender = false; render(); });
-}
-// もぎり済みの画面に動く時計（スクリーンショット対策）
-setInterval(() => { const c = document.getElementById('clock'); if (c) c.textContent = new Date().toLocaleTimeString('ja-JP', { hour12: false }); }, 500);
-
-function status(myNum) {
-  const up = line().slice(0, 5);
-  return `<div class="card center gap"><div class="label">現在呼び出し中</div><div class="big">${sum.current ?? '—'}</div></div>
-    <div class="card center"><div class="label">これから呼び出す番号</div>
-    <div class="chips">${up.length ? up.map(n => `<span class="chip ${n === myNum ? 'me' : ''}">${n}</span>`).join('') : '<span class="sub">なし</span>'}</div></div>`;
+    .then(() => { dragging = false; pending = false; vibrate(80); render(); })
+    .catch(() => { alert('もぎれませんでした。もう一度おためしください'); dragging = false; pending = false; render(); });
 }
 
-function render() {
-  if (dragging) { pendingRender = true; return; }
-  if (!me) {
-    const stopMsg = sum.waitCount > 0
-      ? '現在、整理券の発行を停止しています。整理券をお持ちの方を先にご案内しています。会場の列にお並びください。'
-      : '現在、整理券の発行を停止しています。会場の列にお並びください。';
-    app.innerHTML = `${closedFlag() ? `<div class="banner stop">${stopMsg}</div>` : ''}
-      ${status(null)}
-      <div class="card ${closedFlag() ? 'off' : ''}"><h2>整理券を発行する</h2>
-      <div class="label">ニックネーム（必須・呼び出し用）</div>
-      <input type="text" id="nick" maxlength="12" placeholder="例: たろう" value="${esc(nick)}" autocomplete="off" ${closedFlag() ? 'disabled' : ''}>
-      <div class="label">人数</div><div class="seg">
-      <button data-p="1" class="${people===1?'on':''}">1人</button><button data-p="2" class="${people===2?'on':''}">2人</button></div>
-      <button id="issue" class="wide" ${closedFlag() ? 'disabled' : ''}>整理券を発行する</button></div>`;
-    const ni = document.getElementById('nick'); ni.oninput = () => { nick = ni.value; };
-    app.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { people = +b.dataset.p; render(); });
-    document.getElementById('issue').onclick = e => { e.target.disabled = true; issue().catch(err => { alert(err.message === 'closed' ? '現在、発券を停止しています' : err.message === 'noname' ? 'ニックネームを入力してください' : '発行に失敗しました。もう一度お試しください'); e.target.disabled = false; }); };
-    return;
+/* ---------- 時計・カウントダウン ---------- */
+function tick() {
+  const cd = document.getElementById('cd');
+  if (cd && me && me.calledAt) {
+    const left = Math.round(CALL_TIMEOUT_SEC - (Date.now() - me.calledAt) / 1000);
+    cd.textContent = left >= 0 ? `あと${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : '時間オーバー';
+    if (left < 0) cd.style.fontSize = 'clamp(40px,12vw,64px)';
   }
-  const ahead = line().filter(n => n < me.number).length;
-  let msg = '', pill = '';
-  if (me.status === 'guided') { msg = '<div class="alert now">ご案内済みです。ありがとうございました。</div>'; pill = '<span class="pill ok">案内済み</span>'; }
-  else if (me.status === 'cancelled') { msg = '<div class="alert bad">整理券を取り消しました。</div>'; pill = '<span class="pill bad">取り消し済み</span>'; }
-  else if (me.status === 'absent') { msg = '<div class="alert bad">不在のためキャンセルになりました。スタッフへお声がけください。</div>'; pill = '<span class="pill bad">キャンセル</span>'; }
-  else if (me.status === 'inroom') { msg = '<div class="alert now">待機室に入りました。スタッフの案内をお待ちください。</div>'; pill = '<span class="pill ok">待機室に入室</span>'; }
-  else if (me.status === 'called') { msg = '<div class="alert call">お待たせしました！ 今すぐ待機室へお越しください。</div>'; pill = '<span class="pill warn">呼び出し中</span>'; }
-  else if (me.skipped) { msg = '<div class="alert">順番を飛ばしました。会場に着いたらスタッフへお声がけください。</div>'; pill = '<span class="pill warn">飛ばし中</span>'; }
-  else if (ahead === 0) { msg = '<div class="alert">次に待機室へお呼びします。会場の近くでお待ちください。</div>'; pill = '<span class="pill warn">次です</span>'; }
-  else if (ahead <= WAITING_ROOM) { msg = `<div class="alert">あと${ahead}組で待機室へご案内です。会場へお越しください。</div>`; pill = `<span class="pill warn">あと${ahead}組</span>`; }
-  else pill = `<span class="pill">あと${ahead}組</span>`;
-  const waiting = me.status === 'waiting' && !me.skipped;
-  const wait = (cfg.showWait && waiting && sum.avgGapSec) ? `<div class="sub">待ち時間の目安: ${ahead === 0 ? 'まもなく' : '約' + Math.max(1, Math.round(ahead * sum.avgGapSec / 60)) + '分'}</div>` : '';
-  const who = [me.name, me.people + '名'].filter(Boolean).join(' ・ ');
-  const cancel = (cfg.allowCancel && me.status === 'waiting') ? '<div class="center"><button class="link" id="cancel">この整理券を取り消す</button></div>' : '';
-  app.innerHTML = `${msg}${ticketHtml(pill, who, wait)}
-    ${status(me.number)}${cancel}
-    <div class="center"><button class="link" id="another">別の整理券を発行する</button></div>`;
-  document.getElementById('another').onclick = () => {
-    if (!confirm('この端末の整理券の表示を外して、新しく発行できる状態にします。\n（今の整理券は取り消されません。番号は控えてください）')) return;
-    try { localStorage.removeItem(KEY); } catch (e) {}
-    myId = null; state = {}; subMe();
-  };
-  const cb = document.getElementById('cancel');
-  if (cb) cb.onclick = () => {
-    if (!confirm('整理券を取り消します。よろしいですか？（元には戻せません）')) return;
-    db.collection('tickets').doc(me.id).update({ status: 'cancelled', cancelledAt: Date.now() }).catch(() => alert('取り消せませんでした'));
-  };
-  setupTear();
-  // 通知（状態が変わったときだけ）
-  const key = me.status === 'waiting' ? (me.skipped ? 'skipped' : ahead === 0 ? 'next' : ahead <= WAITING_ROOM ? 'near' : 'far') : me.status;
-  if (state.key !== undefined && state.key !== key) {
-    if (key === 'near') notify('整理券 ' + me.number, `あと${ahead}組で待機室へご案内です。会場へお越しください`);
-    if (key === 'next') notify('整理券 ' + me.number, '次に待機室へお呼びします。会場の近くでお待ちください');
-    if (key === 'called') notify('整理券 ' + me.number, '待機室へお越しください！');
-  }
-  if ((me.status === 'waiting' || me.status === 'called') && me.reNotifiedAt !== undefined && state.re !== undefined && state.re !== me.reNotifiedAt) {
-    notify('整理券 ' + me.number, 'お待ちしています。至急、待機室へお越しください');
-  }
-  state.re = me.reNotifiedAt;
-  state.key = key;
-  document.title = me.status === 'called' ? '【待機室へ！】整理券' : (waiting && ahead <= WAITING_ROOM ? '【お越しください】整理券' : '整理券');
+  const c = document.getElementById('clk'); if (c) c.textContent = fmtHMS(Date.now());
 }
+setInterval(tick, 500);
+
 db.collection('counters').doc(today()).onSnapshot(d => { cfg = d.exists ? d.data() : {}; render(); });
 summaryRef().onSnapshot(d => { sum = d.exists ? d.data() : {}; render(); });
 subMe();

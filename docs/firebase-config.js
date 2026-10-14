@@ -7,3 +7,9 @@ window.FIREBASE_CONFIG = {
 };
 // 案内待ちの何組前から「お越しください」を出すか（待機室の席数）
 window.WAITING_ROOM = 5;
+// 呼び出しから入室までの制限時間（秒）。お客さん画面のカウントダウンに使う
+window.CALL_TIMEOUT_SEC = 300;
+// 平均案内間隔がまだ分からないときの仮の値（秒）
+window.DEFAULT_GAP_SEC = 180;
+// スタッフ画面で、呼び出し・入室から何分たったら赤くするか
+window.ALERT_MIN = 5;
