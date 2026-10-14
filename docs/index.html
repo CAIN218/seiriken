@@ -1,19 +1,32 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>整理券</title><link rel="stylesheet" href="style.css?v=5"></head>
+<title>整理券</title><link rel="stylesheet" href="style.css?v=6"></head>
 <body><header>整理券</header><main>
 <div id="app"><p class="sub center">読み込み中…</p></div>
 <p class="sub center">この画面を開いたままにしてください。順番が近づくと音・振動・表示でお知らせします（画面を閉じている間は届きません）。</p>
-<p class="sub center">v5</p>
+<p class="sub center">v6</p>
 </main>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=5"></script><script src="common.js?v=5"></script>
+<script src="firebase-config.js?v=6"></script><script src="common.js?v=6"></script>
 <script>
 const KEY = 'seiriken-' + today();
-let myId = null, people = 1, nick = '', list = [], state = {}, closedFlag = false;
+let myId = null, people = 1, nick = '', me = null, sum = {}, cfg = {}, state = {}, unsubMe = null;
 try { myId = localStorage.getItem(KEY); nick = localStorage.getItem('seiriken-nick') || ''; } catch (e) {}
 const app = document.getElementById('app');
+const closedFlag = () => !!cfg.closed;
+const line = () => sum.line || [];
+
+function subMe() {
+  if (unsubMe) { unsubMe(); unsubMe = null; }
+  if (!myId) { me = null; render(); return; }
+  const id = myId;
+  unsubMe = db.collection('tickets').doc(id).onSnapshot(d => {
+    if (!d.exists) { try { localStorage.removeItem(KEY); } catch (e) {} myId = null; me = null; state = {}; }
+    else { me = { id, ...d.data() }; if (me.status === 'arrived') me.status = 'inroom'; }
+    render();
+  });
+}
 
 async function issue() {
   const name = nick.trim().slice(0, 12);
@@ -30,36 +43,38 @@ async function issue() {
   myId = newRef.id;
   try { localStorage.setItem(KEY, myId); localStorage.setItem('seiriken-nick', name); } catch (e) {}
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
-  render();
+  subMe();
 }
 
-function status(cur, up, myNum) {
-  return `<div class="card center gap"><div class="label">現在呼び出し中</div><div class="big">${cur ?? '—'}</div></div>
+function status(myNum) {
+  const up = line().slice(0, 5);
+  return `<div class="card center gap"><div class="label">現在呼び出し中</div><div class="big">${sum.current ?? '—'}</div></div>
     <div class="card center"><div class="label">これから呼び出す番号</div>
-    <div class="chips">${up.length ? up.map(t => `<span class="chip ${t.number === myNum ? 'me' : ''}">${t.number}</span>`).join('') : '<span class="sub">なし</span>'}</div></div>`;
+    <div class="chips">${up.length ? up.map(n => `<span class="chip ${n === myNum ? 'me' : ''}">${n}</span>`).join('') : '<span class="sub">なし</span>'}</div></div>`;
 }
 
 function render() {
-  const cur = currentNumber(list);
-  const me = list.find(t => t.id === myId);
-  const up = upcoming(list, 5);
   if (!me) {
-    app.innerHTML = `${closedFlag ? '<div class="banner stop">現在、整理券の発行を停止しています</div>' : ''}
-      ${status(cur, up, null)}
-      <div class="card ${closedFlag ? 'off' : ''}"><h2>整理券を発行する</h2>
+    const stopMsg = sum.waitCount > 0
+      ? '現在、整理券の発行を停止しています。整理券をお持ちの方を先にご案内しています。会場の列にお並びください。'
+      : '現在、整理券の発行を停止しています。会場の列にお並びください。';
+    app.innerHTML = `${closedFlag() ? `<div class="banner stop">${stopMsg}</div>` : ''}
+      ${status(null)}
+      <div class="card ${closedFlag() ? 'off' : ''}"><h2>整理券を発行する</h2>
       <div class="label">ニックネーム（必須・呼び出し用）</div>
-      <input type="text" id="nick" maxlength="12" placeholder="例: たろう" value="${esc(nick)}" autocomplete="off" ${closedFlag ? 'disabled' : ''}>
+      <input type="text" id="nick" maxlength="12" placeholder="例: たろう" value="${esc(nick)}" autocomplete="off" ${closedFlag() ? 'disabled' : ''}>
       <div class="label">人数</div><div class="seg">
       <button data-p="1" class="${people===1?'on':''}">1人</button><button data-p="2" class="${people===2?'on':''}">2人</button></div>
-      <button id="issue" class="wide" ${closedFlag ? 'disabled' : ''}>整理券を発行する</button></div>`;
+      <button id="issue" class="wide" ${closedFlag() ? 'disabled' : ''}>整理券を発行する</button></div>`;
     const ni = document.getElementById('nick'); ni.oninput = () => { nick = ni.value; };
     app.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { people = +b.dataset.p; render(); });
     document.getElementById('issue').onclick = e => { e.target.disabled = true; issue().catch(err => { alert(err.message === 'closed' ? '現在、発券を停止しています' : err.message === 'noname' ? 'ニックネームを入力してください' : '発行に失敗しました。もう一度お試しください'); e.target.disabled = false; }); };
     return;
   }
-  const ahead = aheadOf(list, me);
+  const ahead = line().filter(n => n < me.number).length;
   let msg = '', pill = '';
   if (me.status === 'guided') { msg = '<div class="alert now">ご案内済みです。ありがとうございました。</div>'; pill = '<span class="pill ok">案内済み</span>'; }
+  else if (me.status === 'cancelled') { msg = '<div class="alert bad">整理券を取り消しました。</div>'; pill = '<span class="pill bad">取り消し済み</span>'; }
   else if (me.status === 'absent') { msg = '<div class="alert bad">不在のためキャンセルになりました。スタッフへお声がけください。</div>'; pill = '<span class="pill bad">キャンセル</span>'; }
   else if (me.status === 'inroom') { msg = '<div class="alert now">待機室に入りました。スタッフの案内をお待ちください。</div>'; pill = '<span class="pill ok">待機室に入室</span>'; }
   else if (me.status === 'called') { msg = '<div class="alert call">お待たせしました！ 今すぐ待機室へお越しください。</div>'; pill = '<span class="pill warn">呼び出し中</span>'; }
@@ -67,15 +82,23 @@ function render() {
   else if (ahead === 0) { msg = '<div class="alert">次に待機室へお呼びします。会場の近くでお待ちください。</div>'; pill = '<span class="pill warn">次です</span>'; }
   else if (ahead <= WAITING_ROOM) { msg = `<div class="alert">あと${ahead}組で待機室へご案内です。会場へお越しください。</div>`; pill = `<span class="pill warn">あと${ahead}組</span>`; }
   else pill = `<span class="pill">あと${ahead}組</span>`;
+  const waiting = me.status === 'waiting' && !me.skipped;
+  const wait = (cfg.showWait && waiting && sum.avgGapSec) ? `<div class="sub">待ち時間の目安: ${ahead === 0 ? 'まもなく' : '約' + Math.max(1, Math.round(ahead * sum.avgGapSec / 60)) + '分'}</div>` : '';
   const who = [me.name, me.people + '名'].filter(Boolean).join(' ・ ');
+  const cancel = (cfg.allowCancel && me.status === 'waiting') ? '<div class="center"><button class="link" id="cancel">この整理券を取り消す</button></div>' : '';
   app.innerHTML = `${msg}<div class="card ticket center gap"><div class="label">あなたの整理券</div><div class="big">${me.number}</div>
-    <div>${pill}</div><div class="sub">${esc(who)}</div></div>
-    ${status(cur, up, me.number)}
+    <div>${pill}</div><div class="sub">${esc(who)}</div>${wait}</div>
+    ${status(me.number)}${cancel}
     <div class="center"><button class="link" id="another">別の整理券を発行する</button></div>`;
   document.getElementById('another').onclick = () => {
     if (!confirm('この端末の整理券の表示を外して、新しく発行できる状態にします。\n（今の整理券は取り消されません。番号は控えてください）')) return;
     try { localStorage.removeItem(KEY); } catch (e) {}
-    myId = null; state = {}; render();
+    myId = null; state = {}; subMe();
+  };
+  const cb = document.getElementById('cancel');
+  if (cb) cb.onclick = () => {
+    if (!confirm('整理券を取り消します。よろしいですか？（元には戻せません）')) return;
+    db.collection('tickets').doc(me.id).update({ status: 'cancelled', cancelledAt: Date.now() }).catch(() => alert('取り消せませんでした'));
   };
   // 通知（状態が変わったときだけ）
   const key = me.status === 'waiting' ? (me.skipped ? 'skipped' : ahead === 0 ? 'next' : ahead <= WAITING_ROOM ? 'near' : 'far') : me.status;
@@ -89,8 +112,9 @@ function render() {
   }
   state.re = me.reNotifiedAt;
   state.key = key;
-  document.title = me.status === 'called' ? '【待機室へ！】整理券' : (me.status === 'waiting' && !me.skipped && ahead <= WAITING_ROOM ? '【お越しください】整理券' : '整理券');
+  document.title = me.status === 'called' ? '【待機室へ！】整理券' : (waiting && ahead <= WAITING_ROOM ? '【お越しください】整理券' : '整理券');
 }
-db.collection('counters').doc(today()).onSnapshot(d => { closedFlag = !!(d.exists && d.data().closed); render(); });
-watchTickets(l => { list = l; render(); });
+db.collection('counters').doc(today()).onSnapshot(d => { cfg = d.exists ? d.data() : {}; render(); });
+summaryRef().onSnapshot(d => { sum = d.exists ? d.data() : {}; render(); });
+subMe();
 </script></body></html>

@@ -24,6 +24,25 @@ const isActive = t => t.status === 'waiting';                 // 順番待ち
 const inLine = t => t.status === 'waiting' && !t.skipped;      // 呼び出しの順番に並ぶ組（飛ばし中を除く）
 const inRoom = t => t.status === 'called' || t.status === 'inroom'; // 待機室の枠を使っている組
 const calledAtOf = t => t.calledAt || t.guidedAt || 0;
+// お客さん・モニター向けの集計（スタッフ画面が書き込む。読み取り回数を減らすため）
+const summaryRef = () => db.collection('summary').doc(today());
+function buildSummary(list) {
+  const ct = currentTicket(list);
+  // 呼び出し間隔（直近6回、20分以上空いた間隔は休憩とみなして除外）
+  const calls = list.map(t => t.calledAt || 0).filter(x => x > 0).sort((a, b) => a - b);
+  const gaps = [];
+  for (let i = Math.max(1, calls.length - 6); i < calls.length; i++) {
+    const g = (calls[i] - calls[i - 1]) / 1000;
+    if (g > 0 && g < 1200) gaps.push(g);
+  }
+  return {
+    current: ct ? ct.number : null,
+    line: list.filter(inLine).map(t => t.number),
+    waitCount: list.filter(isActive).length,
+    roomCount: list.filter(inRoom).length,
+    avgGapSec: gaps.length >= 2 ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null
+  };
+}
 // これから呼ぶ番号（先頭からn組）
 function upcoming(list, n) { return list.filter(inLine).slice(0, n); }
 // 現在呼び出し中の組（最後に呼んだ組）

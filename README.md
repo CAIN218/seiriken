@@ -3,7 +3,7 @@
 - `docs/index.html` お客さん用（QRの行き先）
 - `docs/admin.html` スタッフ用（ログイン必須）
 - `docs/board.html` 掲示モニター用
-- `firestore.rules` データベースのルール（Firebaseコンソールに貼る）
+- `firestore.rules` データベースのルール（変更したらFirebaseコンソールに貼り直す）
 
 ## 構成
 画面はGitHub Pagesで公開し、データはFirebase(Firestore, 無料のSpark)に保存します。

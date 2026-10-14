@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="style.css?v=5"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="style.css?v=6"></head>
 <body><header>スタッフ画面</header><main>
 <div id="login" class="card" hidden>
   <input id="email" type="email" placeholder="メール" autocomplete="username">
@@ -23,18 +23,33 @@
   <div class="card"><h2>順番待ち</h2><div id="line"></div></div>
   <div class="card" id="skipCard" hidden><h2>飛ばし中（到着したら優先して呼ぶ）</h2><div id="skipped"></div></div>
   <div class="card">
+    <h2>受付のしかた</h2>
     <div class="actions" style="align-items:center;justify-content:space-between">
-      <div>発券: <span id="openPill" class="pill ok">受付中</span></div>
+      <div>整理券の発行: <span id="openPill" class="pill ok">受付中</span></div>
       <button id="toggleOpen" class="small ghost">発券を停止する</button>
     </div>
+    <p class="sub" id="modeNote" style="margin:8px 0 0"></p>
+  </div>
+  <div class="card">
+    <h2>オプション</h2>
+    <label class="toggle"><input type="checkbox" id="showWaitBox"> お客さん画面に待ち時間の目安を表示</label>
+    <label class="toggle"><input type="checkbox" id="cancelBox"> お客さんが自分で整理券を取り消せる</label>
+  </div>
+  <div class="card">
+    <h2>記録・リセット</h2>
+    <div class="actions">
+      <button id="csvBtn" class="small ghost">今日の記録をCSVで保存</button>
+      <button id="resetBtn" class="small danger">今日の分をすべて消去</button>
+    </div>
+    <p class="sub" style="margin:8px 0 0">本番前のテスト券は、「消去」で番号を1番に戻せます。</p>
   </div>
 </div>
-<p class="sub center" style="margin-top:24px">v5</p>
+<p class="sub center" style="margin-top:24px">v6</p>
 </main>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=5"></script><script src="common.js?v=5"></script>
+<script src="firebase-config.js?v=6"></script><script src="common.js?v=6"></script>
 <script>
 const auth = firebase.auth();
 let list = [], unsub = null, isOpen = true;
@@ -43,14 +58,17 @@ const upd = (id, data) => db.collection('tickets').doc(id).update(data).catch(e 
 const counter = () => db.collection('counters').doc(today());
 
 $('loginBtn').onclick = () => auth.signInWithEmailAndPassword($('email').value, $('pass').value).catch(() => alert('ログインできません'));
-auth.onAuthStateChanged(u => {
-  $('login').hidden = !!u; $('panel').hidden = !u;
-  if (u && !unsub) {
-    unsub = watchTickets(l => { list = l; render(); });
-    counter().onSnapshot(d => { isOpen = !(d.exists && d.data().closed); renderOpen(); });
-  }
-});
 
+// お客さん・モニター向けの集計を書き込む（変化があったときだけ、少し待ってまとめて）
+let lastSummary = '', sumTimer = null;
+function scheduleSummary() {
+  clearTimeout(sumTimer);
+  sumTimer = setTimeout(() => {
+    const sm = buildSummary(list), js = JSON.stringify(sm);
+    if (js === lastSummary) return;
+    summaryRef().set({ ...sm, updatedAt: Date.now() }).then(() => { lastSummary = js; }).catch(() => {});
+  }, 800);
+}
 const callTicket = t => upd(t.id, { status: 'called', skipped: false, calledAt: Date.now() });
 $('callNext').onclick = () => {
   const t = list.find(inLine);
@@ -60,13 +78,42 @@ $('callNext').onclick = () => {
   callTicket(t);
 };
 $('toggleOpen').onclick = () => {
+  const waiting = list.filter(isActive).length;
+  if (isOpen && waiting > 0 && !confirm(`整理券の組がまだ${waiting}組います。\n停止後は「整理券の組を先に呼び出し、その後に列の方を入れる」運用にしてください。停止しますか？`)) return;
   counter().set({ closed: isOpen }, { merge: true }).catch(e => alert('変更できませんでした: ' + e.message));
+};
+$('showWaitBox').onchange = () => counter().set({ showWait: $('showWaitBox').checked }, { merge: true });
+$('cancelBox').onchange = () => counter().set({ allowCancel: $('cancelBox').checked }, { merge: true });
+$('csvBtn').onclick = () => {
+  const fmt = ms => ms ? new Date(ms).toLocaleTimeString('ja-JP', { hour12: false }) : '';
+  const st = { waiting: '順番待ち', called: '呼び出し中', inroom: '入室済み', guided: '案内済み', absent: '欠席', cancelled: '取り消し' };
+  const rows = [['番号', 'ニックネーム', '人数', '状態', '発券', '呼び出し', '入室', '案内完了']].concat(
+    list.map(t => [t.number, t.name || '', t.people, st[t.status] || t.status, fmt(t.createdAt), fmt(t.calledAt), fmt(t.enteredAt), t.status === 'guided' ? fmt(t.guidedAt) : '']));
+  const text = '\ufeff' + rows.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  a.download = `seiriken-${today()}.csv`; a.click();
+};
+$('resetBtn').onclick = async () => {
+  if (!confirm('今日の整理券をすべて消去し、番号を1番に戻します。元に戻せません。よろしいですか？')) return;
+  if (!confirm('本当に消去しますか？（お客さんの整理券も消えます）')) return;
+  try {
+    const snap = await db.collection('tickets').where('day', '==', today()).get();
+    for (let i = 0; i < snap.docs.length; i += 400) {
+      const batch = db.batch();
+      snap.docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+    await counter().set({ last: 0 }, { merge: true });
+    alert('消去しました');
+  } catch (e) { alert('消去できませんでした: ' + e.message); }
 };
 function renderOpen() {
   $('stopBanner').hidden = isOpen;
   document.body.style.background = isOpen ? '' : '#e9d5d5';
   $('openPill').textContent = isOpen ? '受付中' : '停止中';
   $('openPill').className = 'pill ' + (isOpen ? 'ok' : 'bad');
+  $('modeNote').textContent = isOpen ? '整理券で順番を管理します。会場に列は作らず、整理券の順に待機室へ呼んでください。' : '停止中は列に並んでもらう運用です。整理券を持つ組が残っている間は、その組を先に呼んでください。';
   $('toggleOpen').textContent = isOpen ? '発券を停止する' : '発券を再開する';
   $('toggleOpen').className = 'small ' + (isOpen ? 'ghost' : 'danger');
 }
@@ -84,7 +131,7 @@ function render() {
   const full = room.length >= WAITING_ROOM;
   $('callNext').disabled = !nx;
   $('callNext').textContent = nx ? `次の組を待機室へ呼ぶ（${nx.number}番）` : '呼べる組はいません';
-  $('nextInfo').textContent = full ? '⚠ 待機室が満員です' : '';
+  $('nextInfo').textContent = full ? '⚠ 待機室が満員です' : (!nx && !isOpen ? '整理券の組はいません。列の先頭から案内してください' : '');
   $('roomN').textContent = room.length; $('roomMax').textContent = WAITING_ROOM;
   $('cap').innerHTML = Array.from({ length: Math.max(WAITING_ROOM, room.length) }, (_, i) => `<i class="${i < room.length ? (i >= WAITING_ROOM ? 'over' : 'on') : ''}"></i>`).join('');
   $('room').innerHTML = room.length ? room.map(t => `<div class="item"><div class="top">
@@ -117,5 +164,12 @@ document.addEventListener('click', e => {
   if (a === 'skip') upd(id, { skipped: true });
   if (a === 'unskip') upd(id, { skipped: false });
   if (a === 'absent' && confirm('欠席にしますか？')) upd(id, { status: 'absent', skipped: false });
+});
+auth.onAuthStateChanged(u => {
+  $('login').hidden = !!u; $('panel').hidden = !u;
+  if (u && !unsub) {
+    unsub = watchTickets(l => { list = l; render(); scheduleSummary(); });
+    counter().onSnapshot(d => { const c = d.exists ? d.data() : {}; isOpen = !c.closed; $('showWaitBox').checked = !!c.showWait; $('cancelBox').checked = !!c.allowCancel; renderOpen(); });
+  }
 });
 </script></body></html>
