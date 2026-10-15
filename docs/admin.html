@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=25"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=26"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -24,7 +24,7 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v25</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v26</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -56,6 +56,7 @@
   <div class="box" id="stopBox"></div>
   <div class="box" id="waitBox"></div>
   <div class="box" id="multiBox"></div>
+  <div class="box" id="pushBox"></div>
   <div class="box"><button id="csvBtn" class="full">今日の記録をCSVでダウンロード</button></div>
   <div class="box"><div style="font-weight:800">テスト用の整理券の削除</div>
     <div style="font-size:14px;color:#5a6378">お客さん画面のURLの末尾に <b>?test=1</b> を付けて発行した整理券だけを削除します。</div>
@@ -70,7 +71,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=25"></script><script src="common.js?v=25"></script>
+<script src="firebase-config.js?v=26"></script><script src="common.js?v=26"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -134,8 +135,10 @@ async function txRun(id, expect, makePatch, text) {
       tx.update(ref, patch);
     });
     showUndo(text, id, prev);
+    return true;
   } catch (e) {
     alert(e.message === 'changed' ? '他の端末が先に操作しました。画面を最新の状態に更新しました。' : e.message === 'gone' ? 'この整理券が見つかりません。' : '操作できませんでした：' + e.message);
+    return false;
   }
 }
 let undo = null, undoTimer = null, undoLeft = 0;
@@ -151,9 +154,23 @@ function doUndo() {
   db.collection('tickets').doc(u.id).update(u.prev).catch(e => alert('元に戻せませんでした：' + e.message));
 }
 
+// 画面を閉じているお客さんにも届く通知（設定済みのときだけ）
+const PUSH_URL = (window.PUSH_WORKER_URL || '').replace(/\/$/, '');
+function pushNotify(id) {
+  if (!PUSH_URL) return;
+  fetch(PUSH_URL + '/notify', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ ticketId: id }) }).catch(() => {});
+}
+// 「まもなく順番です」の位置に入った組へ、一度だけ通知する
+function pushSoon() {
+  if (!PUSH_URL) return;
+  list.filter(inLine).sort(byOrder).slice(0, SOON_AHEAD + 1).forEach(t => {
+    if (!t.soonPushedAt) db.collection('tickets').doc(t.id).update({ soonPushedAt: Date.now() }).then(() => pushNotify(t.id)).catch(() => {});
+  });
+}
+
 const act = {
   enter: t => txRun(t.id, ['called'], () => ({ status: 'inroom', enteredAt: Date.now(), torn: del() }), `${t.number}番を入室済みにしました`),
-  renotify: t => txRun(t.id, ['called'], () => ({ reNotifiedAt: Date.now() }), `${t.number}番に再通知しました`),
+  renotify: t => txRun(t.id, ['called'], () => ({ reNotifiedAt: Date.now() }), `${t.number}番に再通知しました`).then(ok => { if (ok) pushNotify(t.id); }),
   absent: t => txRun(t.id, ['waiting', 'called'], cur => ({ status: 'absent', absentAt: Date.now(), absentBy: 'staff', absentFrom: cur.skipped ? 'skipped' : cur.status }), `${t.number}番を欠席にしました`),
   // 入室済みにしたのを取り消して、呼び出し中に戻す
   reopen: t => txRun(t.id, ['inroom', 'guided'], () => ({ status: 'called', enteredAt: del(), torn: del() }), `${t.number}番を呼び出し中に戻しました`),
@@ -165,7 +182,7 @@ function callNext() {
   const line = list.filter(inLine).sort(byOrder);
   if (!line.length) return;
   const t = line[0];
-  txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${t.number}番を呼び出しました`);
+  txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${t.number}番を呼び出しました`).then(ok => { if (ok) pushNotify(t.id); });
 }
 
 /* ---------- 画面 ---------- */
@@ -229,7 +246,7 @@ setInterval(updateOffline, 1000); addEventListener('online', updateOffline); add
 /* ---------- 集計の書き込み ---------- */
 let lastSummary = '', sumTimer = null;
 function scheduleSummary() {
-  clearTimeout(sumTimer);
+  clearTimeout(sumTimer); pushSoon();
   sumTimer = setTimeout(() => {
     const sm = buildSummary(list), js = JSON.stringify(sm);
     if (js === lastSummary) return;
@@ -312,6 +329,10 @@ $('gearBtn').onclick = () => {
   const wOn = cfg.showWait !== false;
   $('waitBox').innerHTML = `<div style="font-weight:800">お客さん画面の待ち時間表示：${wOn ? 'オン' : 'オフ'}</div><div style="font-size:14px;color:#5a6378">オフにすると、「約○分」「○時ごろ」の目安を出さず、「あと○組」だけを表示します。</div><button id="waitBtn" class="full ${wOn ? '' : 'btn-ok'}" style="min-height:52px">${wOn ? '待ち時間を非表示にする' : '待ち時間を表示する'}</button>`;
   $('waitBtn').onclick = () => counter().set({ showWait: !wOn }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
+  $('pushBox').innerHTML = PUSH_URL
+    ? `<div style="font-weight:800">画面を閉じていても届く通知</div><div style="font-size:14px;color:#5a6378">通知サーバーにつながるかを確認します。</div><button id="pushChk" class="full" style="min-height:52px">通知サーバーを確認する</button>`
+    : `<div style="font-weight:800">画面を閉じていても届く通知：未設定</div><div style="font-size:14px;color:#5a6378">push-worker/SETUP.md の手順で設定すると使えます。</div>`;
+  if ($('pushChk')) $('pushChk').onclick = async () => { try { const r = await fetch(PUSH_URL + '/vapid'); const t = await r.text(); alert(r.ok && t.length > 60 ? '通知サーバーにつながりました。' : '通知サーバーから、想定外の返事がありました：' + t.slice(0, 120)); } catch (e) { alert('通知サーバーにつながりませんでした。URLを確認してください。'); } };
   const mOn = cfg.multiTicket !== false;
   $('multiBox').innerHTML = `<div style="font-weight:800">待機中でも新しい整理券を発行できる：${mOn ? 'オン' : 'オフ'}</div><div style="font-size:14px;color:#5a6378">オンの間は、お客さん画面の下に「別の整理券を発行する」が出ます（動作確認用）。本番では、オフにしてください。</div><button id="multiBtn" class="full ${mOn ? '' : 'btn-ok'}" style="min-height:52px">${mOn ? 'オフにする' : 'オンにする'}</button>`;
   $('multiBtn').onclick = () => counter().set({ multiTicket: !mOn }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
@@ -323,6 +344,9 @@ $('resetIn').oninput = () => { $('resetBtn').disabled = $('resetIn').value.trim(
 async function deleteTickets(filter) {
   const snap = await db.collection('tickets').where('day', '==', today()).get();
   const docs = snap.docs.filter(d => filter(d.data()));
+  const ids = new Set(docs.map(d => d.id));
+  const subs = (await db.collection('pushSubs').where('day', '==', today()).get().catch(() => ({ docs: [] }))).docs.filter(d => ids.has(d.id));
+  for (let i = 0; i < subs.length; i += 400) { const b = db.batch(); subs.slice(i, i + 400).forEach(d => b.delete(d.ref)); await b.commit(); }
   for (let i = 0; i < docs.length; i += 400) { const b = db.batch(); docs.slice(i, i + 400).forEach(d => b.delete(d.ref)); await b.commit(); }
   return docs.length;
 }

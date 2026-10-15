@@ -1,0 +1,25 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>通知用の鍵を作る</title>
+<style>body{font-family:system-ui,"Hiragino Sans","Noto Sans JP",sans-serif;max-width:640px;margin:20px auto;padding:0 16px;line-height:1.6}textarea{width:100%;height:150px;font-size:14px}button{font-size:18px;padding:12px 18px;margin:8px 0}.warn{background:#ffe3e3;padding:10px;border-radius:8px}</style></head><body>
+<h2>通知用の鍵を作る</h2>
+<p>このページは、あなたのブラウザの中だけで鍵を作ります。どこにも送信・保存しません。</p>
+<button id="go">鍵を作る</button>
+<div id="out" hidden>
+<p class="warn"><b>この「秘密鍵」は、人に見せたり、チャットに貼ったりしないでください。</b>下の文字を全部コピーして、Cloudflareの「VAPID_PRIVATE_JWK」に貼り付けます。</p>
+<textarea id="priv" readonly></textarea><br><button id="copy">コピーする</button>
+<p>確認用の公開鍵（貼る必要はありません）：<br><code id="pub"></code></p>
+</div>
+<script>
+const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+document.getElementById('go').onclick = async () => {
+  const k = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const j = await crypto.subtle.exportKey('jwk', k.privateKey);
+  const raw = new Uint8Array(65); raw[0] = 4;
+  const dec = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')), c => c.charCodeAt(0));
+  raw.set(dec(j.x), 1); raw.set(dec(j.y), 33);
+  document.getElementById('priv').value = JSON.stringify({ kty: j.kty, crv: j.crv, x: j.x, y: j.y, d: j.d });
+  document.getElementById('pub').textContent = b64u(raw);
+  document.getElementById('out').hidden = false;
+};
+document.getElementById('copy').onclick = () => { const t = document.getElementById('priv'); t.select(); navigator.clipboard.writeText(t.value).then(() => alert('コピーしました')); };
+</script></body></html>
