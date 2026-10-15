@@ -3,7 +3,7 @@ const db = firebase.firestore();
 // 会場や学校のネットワークでは、通常の接続が途切れて画面が更新されなくなることがある。自動で別の接続方式に切り替える
 try { db.settings({ experimentalAutoDetectLongPolling: true, merge: true }); } catch (e) {}
 const EVENT_TITLE = window.EVENT_TITLE || '整理券';
-const SOON_AHEAD = window.SOON_AHEAD != null ? window.SOON_AHEAD : 2;
+const SOON_AHEAD = window.SOON_AHEAD != null ? window.SOON_AHEAD : 1;
 const CALL_TIMEOUT_SEC = window.CALL_TIMEOUT_SEC || 300;
 const DEFAULT_GAP_SEC = window.DEFAULT_GAP_SEC || 180;
 const ALERT_MIN = window.ALERT_MIN || 5;
