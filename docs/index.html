@@ -1,18 +1,17 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="stylesheet" href="customer.css?v=14"></head>
+<title>整理券</title><link rel="stylesheet" href="customer.css?v=15"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=14"></script><script src="common.js?v=14"></script>
+<script src="firebase-config.js?v=15"></script><script src="common.js?v=15"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
 let myId = null, people = 1, nick = '', formErr = '', busy = false;
 let me = null, sum = {}, cfg = {}, st = {}, unsubMe = null, dragging = false, pending = false;
-let soundOn = false;
-try { myId = localStorage.getItem(KEY); nick = localStorage.getItem('seiriken-nick') || ''; soundOn = localStorage.getItem('seiriken-sound') === '1'; } catch (e) {}
+try { myId = localStorage.getItem(KEY); nick = localStorage.getItem('seiriken-nick') || ''; } catch (e) {}
 const app = document.getElementById('app');
 const line = () => sum.line || [];
 const showWait = () => cfg.showWait !== false;
@@ -24,7 +23,20 @@ function etaText(ahead) { const t = Date.now() + (ahead + 1) * gapSec() * 1000; 
 
 /* ---------- 音・振動 ---------- */
 let actx = null, ringTimer = null, ringSilenced = false;
-function ensureAudio() { try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) {} }
+const audioOn = () => !!actx && actx.state === 'running';
+// 音が実際に鳴る状態かどうかで、通知ボタンの表示を切り替える
+function updNotif() {
+  const b = document.getElementById('notif'); if (!b) return;
+  b.textContent = audioOn() ? '🔔 通知オン（タップで音を確認）' : '🔕 タップして音をオンにする';
+  b.className = audioOn() ? 'btn sub' : 'btn';
+}
+function ensureAudio() {
+  try {
+    if (!actx) { actx = new (window.AudioContext || window.webkitAudioContext)(); actx.addEventListener('statechange', updNotif); }
+    if (actx.state !== 'running') return actx.resume().then(updNotif, () => {});
+  } catch (e) {}
+  return Promise.resolve();
+}
 document.addEventListener('pointerdown', ensureAudio, { passive: true });
 function beep(n) {
   if (!actx) return;
@@ -89,7 +101,7 @@ function leave() { try { localStorage.removeItem(KEY); } catch (e) {} myId = nul
 
 /* ---------- 画面 ---------- */
 const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${TEST && me ? '<div class="c"><button class="linkbtn" id="another">別の整理券を発行する（テスト用）</button></div>' : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div></div></div>`; };
-const notifyBtn = () => `<button class="btn sub" id="notif">${soundOn ? '🔔 通知オン（タップで音を確認）' : '🔔 通知をオンにする'}</button><div class="small c">iPhoneでは振動しません。この画面を開いたままにしてください。</div>`;
+const notifyBtn = () => `<button class="btn ${audioOn() ? 'sub' : ''}" id="notif">${audioOn() ? '🔔 通知オン（タップで音を確認）' : '🔕 タップして音をオンにする'}</button><div class="small c">iPhoneでは振動しません。この画面を開いたままにしてください。</div>`;
 const cancelBtn = () => '<div class="c"><button class="linkbtn" id="cancel">整理券をキャンセルする</button></div>';
 const stubHtml = (enabled) => `<div class="${enabled ? '' : 'off'}"><div class="tear" id="${enabled ? 'tear' : 'tearOff'}"><div class="tear-txt">${enabled ? '右になぞって、もぎる' : '呼ばれるまで、もぎれません'}</div><div class="tear-h" ${enabled ? 'id="tearH"' : ''}>✂</div></div></div>`;
 
@@ -170,10 +182,8 @@ function wire() {
   document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { people = +b.dataset.p; render(); });
   if ($('issue')) $('issue').onclick = () => { ensureAudio(); issue(); };
   if ($('notif')) $('notif').onclick = async () => {
-    ensureAudio(); beep(2); soundOn = true;
-    try { localStorage.setItem('seiriken-sound', '1'); } catch (e) {}
+    await ensureAudio(); beep(2); updNotif();
     try { if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {}
-    $('notif').textContent = '🔔 通知オン（タップで音を確認）';
   };
   if ($('cancel')) $('cancel').onclick = () => {
     if (!confirm('整理券をキャンセルします。\nよろしいですか？（元には戻せません）')) return;
