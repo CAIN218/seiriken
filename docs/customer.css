@@ -122,7 +122,8 @@ body.st-none .seg button.on{background:#3a7d6e;color:#fff;border-color:#3a7d6e}
 .sp-row{display:flex;justify-content:space-between;align-items:baseline;color:var(--sub);font-weight:800}
 .sp-lab{letter-spacing:.5em;font-size:15px}
 .sp-num{font-size:20px;font-variant-numeric:tabular-nums;color:var(--fg)}
-.sp-hint{margin-top:6px;text-align:center;font-size:14px;font-weight:700;color:#8a8f96}
+.sp-hint{margin-top:6px;text-align:center;font-size:clamp(18px,5.4vw,22px);font-weight:900;color:var(--ok)}
+.off .sp-hint{font-size:14px;font-weight:700;color:#8a8f96}
 .off .sp{background:#f1f1ee}
 .slw{filter:drop-shadow(0 3px 5px rgba(60,50,30,.18))}
 .slw.r{position:relative}

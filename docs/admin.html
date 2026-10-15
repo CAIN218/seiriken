@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=30"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=31"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -71,7 +71,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=30"></script><script src="common.js?v=30"></script>
+<script src="firebase-config.js?v=31"></script><script src="common.js?v=31"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -348,7 +348,7 @@ document.addEventListener('pointerdown', e => {
   const row = h.closest('.row');
   drag = { id: h.dataset.drag, row, h, pid: e.pointerId, sx: e.clientX, sy: e.clientY, y: e.clientY, active: false, sc0: window.scrollY };
   try { h.setPointerCapture(e.pointerId); } catch (er) {}
-  drag.timer = setTimeout(beginDrag, 350);
+  drag.timer = setTimeout(beginDrag, 200);
 });
 function beginDrag() {
   const d = drag; if (!d) return;
@@ -387,7 +387,7 @@ function scrollLoop() {
 document.addEventListener('pointermove', e => {
   const d = drag; if (!d || e.pointerId !== d.pid) return;
   d.y = e.clientY;
-  if (!d.active) { if (Math.abs(e.clientX - d.sx) > 10 || Math.abs(e.clientY - d.sy) > 10) { clearTimeout(d.timer); drag = null; } return; }
+  if (!d.active) { if (Math.abs(e.clientX - d.sx) > 6 || Math.abs(e.clientY - d.sy) > 6) { clearTimeout(d.timer); beginDrag(); } else return; }
   e.preventDefault(); updateDrag();
 }, { passive: false });
 async function endDrag(e, cancelled) {
