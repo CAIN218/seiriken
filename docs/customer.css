@@ -66,7 +66,7 @@ body.st-call{--bg:#eeeaf8}
 
 /* 呼び出し中のチケットは、淡いラベンダーの縁取り */
 .tk.call .tk-main{border:2px solid #cfc6ec;border-bottom:0}
-.tk.call .tk-stub{border:2px solid #cfc6ec;border-top:0}
+.tk.call .sf{border:2px solid #cfc6ec;border-top:0}
 .tk.call .tk-title{color:#5b4fa0}
 .tk.call .tk-perf::before{border-top-color:#b8acdf}
 .tk-note{font-size:14px;font-weight:700;color:var(--sub);margin-top:2px}
@@ -82,18 +82,13 @@ body.st-call{--bg:#eeeaf8}
 .tk{--tooth:calc(var(--p)*11px)}
 .tk-stub{position:relative}
 .sf{background:#fff;border-radius:0 0 18px 18px;padding:12px 12px 12px}
-.sg{font-size:clamp(20px,6vw,24px);font-weight:900;text-align:center;color:var(--fg);margin-bottom:8px;line-height:1.3}
 .strack{position:relative;height:60px;border-radius:14px;background:#e4f1ed;display:flex;align-items:center;justify-content:center;padding-left:56px}
-.stx{color:var(--ok);font-weight:900;font-size:19px;opacity:calc(1 - var(--p))}
-.off .strack{background:#e6e6e3}.off .stx{color:#8a8f96}.off .sg{color:var(--sub)}
-.strack .tear-h{left:4px;top:2px}
+.stx{color:var(--ok);font-weight:900;font-size:clamp(19px,5.6vw,22px)}
+.off .strack{background:#e6e6e3}.off .stx{color:#8a8f96}.strack .tear-h{left:4px;top:2px}
 .sl.base{clip-path:polygon(calc(var(--p)*100%) 0%,calc(var(--p)*100% + var(--tooth)) 10%,calc(var(--p)*100%) 20%,calc(var(--p)*100% + var(--tooth)) 30%,calc(var(--p)*100%) 40%,calc(var(--p)*100% + var(--tooth)) 50%,calc(var(--p)*100%) 60%,calc(var(--p)*100% + var(--tooth)) 70%,calc(var(--p)*100%) 80%,calc(var(--p)*100% + var(--tooth)) 90%,calc(var(--p)*100%) 100%,100% 100%,100% 0)}
-.sl.flap{position:absolute;inset:0;clip-path:polygon(0 0,calc(var(--p)*100%) 0%,calc(var(--p)*100% + var(--tooth)) 10%,calc(var(--p)*100%) 20%,calc(var(--p)*100% + var(--tooth)) 30%,calc(var(--p)*100%) 40%,calc(var(--p)*100% + var(--tooth)) 50%,calc(var(--p)*100%) 60%,calc(var(--p)*100% + var(--tooth)) 70%,calc(var(--p)*100%) 80%,calc(var(--p)*100% + var(--tooth)) 90%,calc(var(--p)*100%) 100%,0 100%);transform-origin:calc(var(--p)*100%) 0;transform:rotate(calc(var(--p)*-20deg));filter:drop-shadow(0 6px 6px rgba(40,30,70,.25));pointer-events:none}
-.tk-stub .tear{position:absolute;left:12px;right:12px;bottom:12px;height:60px;background:none;overflow:visible;border-radius:0}
+.tk-stub .tear{position:absolute;left:14px;right:14px;bottom:14px;height:60px;background:none;overflow:visible;border-radius:0}
 .tk-stub .tear .tear-h{top:2px}
-.tk.ripped .sl.flap{animation:flapaway .7s ease-in forwards}
-.tk.ripped .sl.base{animation:fadeout .5s ease-out forwards}
-@keyframes flapaway{to{transform:translate(-30px,420px) rotate(-60deg);opacity:0}}
+.tk.ripped .sl.base{animation:fadeout .4s ease-out forwards}
 @keyframes fadeout{to{opacity:0}}
 .tk.ripped .tear-h{opacity:0}
 .tk.ripped .tk-stub{border-color:transparent!important;transition:border-color .2s}
