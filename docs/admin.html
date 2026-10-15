@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=21"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=22"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -24,7 +24,7 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v21</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v22</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -70,7 +70,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=21"></script><script src="common.js?v=21"></script>
+<script src="firebase-config.js?v=22"></script><script src="common.js?v=22"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -108,7 +108,7 @@ function detailHtml(t) {
   if (isInvalid(t)) add('無効になった理由', `<b style="color:var(--bad)">${reasonOf(t)}</b>`);
   if (made) add('発行', fmtT(made));
   if (t.calledAt) add('呼び出し', fmtT(t.calledAt));
-  if (isDone(t)) add('入室', fmtT(t.enteredAt) + (t.torn ? '（お客さんがもぎり）' : '（スタッフが操作）'));
+  if (isDone(t)) add('入室', fmtT(t.enteredAt) + (t.torn ? '（お客さんがめくった）' : '（スタッフが操作）'));
   if (t.status === 'absent') add('欠席にした時刻', t.absentAt ? fmtT(t.absentAt) : '記録なし');
   if (t.status === 'cancelled') add('キャンセルした時刻', t.cancelledAt ? fmtT(t.cancelledAt) : '記録なし');
   if (made && (t.calledAt || end)) add('待った時間', fmtDur((t.calledAt || end) - made) + (t.calledAt ? '（発行→呼び出し）' : isInvalid(t) ? '（発行→無効になるまで）' : '（発行から今まで）'));
@@ -202,7 +202,7 @@ function render() {
       <div class="rtop"><button class="numbtn" data-a="check" data-id="${t.id}">${t.number}</button><div class="who">${label(t)}</div><span class="pill ${isSkipped(t) ? 'skipped' : t.status}">${pill}</span><span class="el"></span></div>
       <div class="racts">${acts}</div></div>`;
   };
-  const doneHtml = t => `<div class="row inroom"><div class="rtop"><button class="numbtn" data-a="check" data-id="${t.id}">${t.number}</button><div class="who">${label(t)}</div><span class="pill inroom">${t.torn ? '入室済み（もぎり）' : '入室済み'}</span><span class="el" style="font-size:14px">${fmtT(t.enteredAt)}</span></div>
+  const doneHtml = t => `<div class="row inroom"><div class="rtop"><button class="numbtn" data-a="check" data-id="${t.id}">${t.number}</button><div class="who">${label(t)}</div><span class="pill inroom">${t.torn ? '入室済み（めくり）' : '入室済み'}</span><span class="el" style="font-size:14px">${fmtT(t.enteredAt)}</span></div>
       <div class="racts"><button data-a="reopen" data-id="${t.id}">呼び出し中に戻す</button></div></div>`;
   $('lists').innerHTML = `<h2>呼び出し中（${room.length}組）</h2><div class="grid">${room.map(rowHtml).join('') || '<div class="row" style="color:#8a93a6">呼び出し中の組はありません</div>'}</div>
     <h2>順番待ち（${line.length}組）</h2><div class="grid">${line.map(rowHtml).join('') || '<div class="row" style="color:#8a93a6">順番待ちの組はありません</div>'}</div>

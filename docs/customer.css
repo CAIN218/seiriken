@@ -53,14 +53,14 @@ body.st-call{--bg:#eeeaf8}
 .tk-perf .n{position:absolute;top:-13px;width:26px;height:26px;border-radius:50%;background:var(--pg)}
 .tk-perf .n.l{left:-13px}.tk-perf .n.r{right:-13px}
 .tk-cut{position:absolute;left:16px;top:-3px;height:6px;width:calc((100% - 32px)*var(--p));background:var(--pg)}
-.tk-stub{background:#fff;border-radius:0 0 18px 18px;padding:14px 12px 12px;transform-origin:100% 0;transform:rotate(calc(var(--p)*-5deg)) translateY(calc(var(--p)*10px))}
+.tk-stub{background:#fff;border-radius:0 0 18px 18px;padding:14px 12px 12px;transform-origin:50% 0;transform:perspective(600px) rotateX(calc(var(--p)*60deg));box-shadow:0 calc(var(--p)*14px) calc(var(--p)*16px) rgba(40,30,70,calc(var(--p)*.22))}
 .tk-stub .tear{height:60px}
-.tk.ripped .tk-stub{animation:stubfall .7s cubic-bezier(.5,0,1,.8) forwards;pointer-events:none}
-@keyframes stubfall{from{transform:rotate(-5deg) translateY(10px)}to{transform:translate(60px,640px) rotate(-32deg);opacity:0}}
-.tk.ripped .tk-main{animation:jolt .25s ease-out;-webkit-mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) 50%/18px 100%;mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) 50%/18px 100%;padding-bottom:22px}
+.tk.ripped .tk-stub{animation:peel .75s cubic-bezier(.45,0,.9,.6) forwards;pointer-events:none}
+@keyframes peel{from{transform:perspective(600px) rotateX(60deg)}60%{opacity:1}to{transform:perspective(600px) rotateX(179deg);opacity:0}}
+.tk.ripped .tk-main{animation:jolt .25s ease-out}
 @keyframes jolt{30%{transform:translateY(-5px) rotate(.6deg)}to{transform:none}}
 /* 入室済みのチケット（切り口がギザギザ） */
-.tk-main.cut{-webkit-mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) 50%/18px 100%;mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) 50%/18px 100%;padding-bottom:26px}
+.tk-main.cut{border-radius:18px}
 .tk-times{display:flex;justify-content:center;gap:24px;margin-top:8px}
 .tk-times span{display:block;font-size:14px;color:var(--sub);font-weight:700}
 .tk-times b{font-size:26px;font-variant-numeric:tabular-nums}
@@ -80,3 +80,4 @@ body.st-call{--bg:#eeeaf8}
 .oc{min-width:44px;padding:4px 8px;border-radius:10px;background:#eef0f3;font-weight:900;font-size:20px;font-variant-numeric:tabular-nums}
 .oc.me{background:var(--accent);color:#fff}.oc.dots{background:none;min-width:0;padding:4px 0}
 .oc{display:flex;flex-direction:column;align-items:center;line-height:1.15}.oc small{font-size:11px;font-weight:700;color:var(--sub)}.oc.me small{color:#e4f1ed}.oc{font-size:18px}
+.tear-txt small{display:block;font-size:12px;font-weight:700;opacity:.85;margin-top:1px;text-align:center}.tear-txt{text-align:center;line-height:1.2}
