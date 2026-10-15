@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=13"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=14"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -15,26 +15,33 @@
   <div class="topbar"><div class="inner">
     <div class="who-row"><span>スタッフ画面</span><button id="userBtn" class="usrbtn" aria-label="ログアウト">👤 <span id="userName"></span></button></div>
     <div class="slots" id="slots"></div>
-    <div class="bar">
-      <button id="callNext" class="call btn-main">次の組を呼ぶ</button>
-      <button id="histBtn" class="ico" aria-label="受付した整理券の一覧">📋</button>
-      <button id="gearBtn" class="ico" aria-label="管理メニュー">⚙</button>
+    <button id="callNext" class="call btn-main">次の組を呼ぶ</button>
+    <div class="bar2">
+      <button id="histBtn" class="big2">📋 履歴・検索</button>
+      <button id="gearBtn" class="big2">⚙ 設定</button>
     </div>
     <div class="stats" id="stats"></div>
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v13</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v14</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
 
-<div id="hist" class="modal" hidden><div class="sheet">
-  <h3>受付した整理券の一覧</h3>
+<div id="hist" class="modal big" hidden><div class="sheet">
+  <div class="shead"><h3>履歴・検索</h3><button id="hClose2" class="xbtn">閉じる</button></div>
   <div class="box"><input id="hq" type="text" placeholder="番号またはニックネームで検索" autocomplete="off">
     <div class="chips" id="hchips"></div></div>
   <div id="hlist"></div>
   <button id="hClose" class="full" style="min-height:56px">閉じる</button>
+</div></div>
+
+<div id="acct" class="modal" hidden><div class="sheet">
+  <h3>ログイン中のアカウント</h3>
+  <div class="box"><div style="font-size:20px;font-weight:800" id="acctName"></div><div style="color:#5a6378" id="acctMail"></div></div>
+  <button id="logoutBtn" class="full btn-bad" style="min-height:56px">ログアウトする</button>
+  <button id="acctClose" class="full" style="min-height:56px">閉じる</button>
 </div></div>
 
 <div id="check" class="modal" hidden><div class="sheet">
@@ -44,8 +51,8 @@
   <button id="chkClose" class="full" style="min-height:56px">閉じる</button>
 </div></div>
 
-<div id="menu" class="modal" hidden><div class="sheet">
-  <h3>管理メニュー</h3>
+<div id="menu" class="modal big" hidden><div class="sheet">
+  <div class="shead"><h3>設定</h3><button id="menuClose2" class="xbtn">閉じる</button></div>
   <div class="box" id="stopBox"></div>
   <div class="box" id="waitBox"></div>
   <div class="box"><button id="csvBtn" class="full">今日の記録をCSVでダウンロード</button></div>
@@ -62,7 +69,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=13"></script><script src="common.js?v=13"></script>
+<script src="firebase-config.js?v=14"></script><script src="common.js?v=14"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -170,7 +177,7 @@ function render() {
   // 呼び出し中の組の番号（空き枠は出さない）
   $('slots').innerHTML = room.length || skipped.length
     ? room.map(t => `<div class="slot called">${t.number}<small>呼び出し中</small></div>`).join('') + skipped.map(t => `<div class="slot skipped">${t.number}<small>飛ばし中</small></div>`).join('')
-    : '<div class="slotnone">呼び出し中の組はありません</div>';
+    : '';
   const full = room.length >= WAITING_ROOM;
   $('callNext').disabled = full || !line.length;
   $('callNext').textContent = full ? `呼び出し中が上限（${WAITING_ROOM}組）です` : (line.length ? `次の組を呼ぶ（${line[0].number}番）` : '呼び出せる組はありません');
@@ -281,7 +288,7 @@ function renderHist() {
     : '<div class="box" style="color:#8a93a6">該当する整理券はありません</div>';
 }
 $('histBtn').onclick = () => { $('hist').hidden = false; renderHist(); };
-$('hClose').onclick = () => { $('hist').hidden = true; };
+$('hClose').onclick = $('hClose2').onclick = () => { $('hist').hidden = true; };
 $('hq').oninput = renderHist;
 $('hchips').onclick = e => { const b = e.target.closest('[data-f]'); if (b) { hFilter = b.dataset.f; renderHist(); } };
 
@@ -304,7 +311,7 @@ $('gearBtn').onclick = () => {
   $('resetIn').value = ''; $('resetBtn').disabled = true;
   $('menu').hidden = false;
 };
-$('menuClose').onclick = () => { $('menu').hidden = true; };
+$('menuClose').onclick = $('menuClose2').onclick = () => { $('menu').hidden = true; };
 $('resetIn').oninput = () => { $('resetBtn').disabled = $('resetIn').value.trim() !== 'リセット'; };
 async function deleteTickets(filter) {
   const snap = await db.collection('tickets').where('day', '==', today()).get();
@@ -333,7 +340,9 @@ $('csvBtn').onclick = () => {
   const text = '\ufeff' + rows.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(',')).join('\r\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = `seiriken-${today()}.csv`; a.click();
 };
-$('userBtn').onclick = () => { if (confirm('ログアウトします。よろしいですか？')) auth.signOut().then(() => location.reload()); };
+$('userBtn').onclick = () => { const u = auth.currentUser || {}; $('acctName').textContent = $('userName').textContent; $('acctMail').textContent = u.email || ''; $('acct').hidden = false; };
+$('acctClose').onclick = () => { $('acct').hidden = true; };
+$('logoutBtn').onclick = () => { if (confirm('ログアウトします。よろしいですか？')) auth.signOut().then(() => location.reload()); };
 
 /* ---------- ログイン ---------- */
 $('loginBtn').onclick = () => auth.signInWithEmailAndPassword($('email').value, $('pass').value).catch(() => alert('ログインできませんでした。メールアドレスとパスワードを確認してください。'));
