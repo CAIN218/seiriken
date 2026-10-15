@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="stylesheet" href="customer.css?v=15"></head>
+<title>整理券</title><link rel="stylesheet" href="customer.css?v=16"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=15"></script><script src="common.js?v=15"></script>
+<script src="firebase-config.js?v=16"></script><script src="common.js?v=16"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -100,7 +100,7 @@ async function issue() {
 function leave() { try { localStorage.removeItem(KEY); } catch (e) {} myId = null; me = null; st = {}; stopRing(); subMe(); }
 
 /* ---------- 画面 ---------- */
-const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${TEST && me ? '<div class="c"><button class="linkbtn" id="another">別の整理券を発行する（テスト用）</button></div>' : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div></div></div>`; };
+const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div></div></div>`; };
 const notifyBtn = () => `<button class="btn ${audioOn() ? 'sub' : ''}" id="notif">${audioOn() ? '🔔 通知オン（タップで音を確認）' : '🔕 タップして音をオンにする'}</button><div class="small c">iPhoneでは振動しません。この画面を開いたままにしてください。</div>`;
 const cancelBtn = () => '<div class="c"><button class="linkbtn" id="cancel">整理券をキャンセルする</button></div>';
 const stubHtml = (enabled) => `<div class="${enabled ? '' : 'off'}"><div class="tear" id="${enabled ? 'tear' : 'tearOff'}"><div class="tear-txt">${enabled ? '右になぞって、もぎる' : '呼ばれるまで、もぎれません'}</div><div class="tear-h" ${enabled ? 'id="tearH"' : ''}>✂</div></div></div>`;
@@ -195,7 +195,7 @@ function wire() {
   };
   if ($('refresh')) $('refresh').onclick = () => { subAll(); };
   if ($('again')) $('again').onclick = leave;
-  if ($('another')) $('another').onclick = () => { if (confirm('この端末に表示している整理券を外して、新しい整理券を発行できるようにします。')) leave(); };
+  if ($('another')) $('another').onclick = () => { if (confirm('この端末に表示している整理券を外して、新しい整理券を発行します。\n今の整理券は、順番待ちの列に残ります。')) leave(); };
   setupTear();
 }
 

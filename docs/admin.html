@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=15"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=16"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -24,7 +24,7 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v15</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v16</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -55,6 +55,7 @@
   <div class="shead"><h3>設定</h3><button id="menuClose2" class="xbtn">閉じる</button></div>
   <div class="box" id="stopBox"></div>
   <div class="box" id="waitBox"></div>
+  <div class="box" id="multiBox"></div>
   <div class="box"><button id="csvBtn" class="full">今日の記録をCSVでダウンロード</button></div>
   <div class="box"><div style="font-weight:800">テスト用の整理券の削除</div>
     <div style="font-size:14px;color:#5a6378">お客さん画面のURLの末尾に <b>?test=1</b> を付けて発行した整理券だけを削除します。</div>
@@ -69,7 +70,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=15"></script><script src="common.js?v=15"></script>
+<script src="firebase-config.js?v=16"></script><script src="common.js?v=16"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -312,6 +313,9 @@ $('gearBtn').onclick = () => {
   const wOn = cfg.showWait !== false;
   $('waitBox').innerHTML = `<div style="font-weight:800">お客さん画面の待ち時間表示：${wOn ? 'オン' : 'オフ'}</div><div style="font-size:14px;color:#5a6378">オフにすると、「約○分」「○時ごろ」の目安を出さず、「あと○組」だけを表示します。</div><button id="waitBtn" class="full ${wOn ? '' : 'btn-ok'}" style="min-height:52px">${wOn ? '待ち時間を非表示にする' : '待ち時間を表示する'}</button>`;
   $('waitBtn').onclick = () => counter().set({ showWait: !wOn }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
+  const mOn = cfg.multiTicket !== false;
+  $('multiBox').innerHTML = `<div style="font-weight:800">待機中でも新しい整理券を発行できる：${mOn ? 'オン' : 'オフ'}</div><div style="font-size:14px;color:#5a6378">オンの間は、お客さん画面の下に「別の整理券を発行する」が出ます（動作確認用）。本番では、オフにしてください。</div><button id="multiBtn" class="full ${mOn ? '' : 'btn-ok'}" style="min-height:52px">${mOn ? 'オフにする' : 'オンにする'}</button>`;
+  $('multiBtn').onclick = () => counter().set({ multiTicket: !mOn }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
   $('resetIn').value = ''; $('resetBtn').disabled = true;
   $('menu').hidden = false;
 };
