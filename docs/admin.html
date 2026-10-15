@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=33"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=34"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -13,13 +13,13 @@
 <div id="app" hidden>
   <div id="offline" class="offline" hidden>オフラインです（通信が切れています）。操作が反映されない場合があります。</div>
   <div class="topbar"><div class="inner">
-    <div class="who-row"><button id="paperBtn" class="paperbtn">📄 スマホなしで発券</button><span class="hico"><button id="histBtn" class="ico" aria-label="履歴">📋</button><button id="gearBtn" class="ico" aria-label="設定">⚙</button><button id="userBtn" class="usrbtn" aria-label="アカウント">👤 <span id="userName"></span></button></span></div>
+    <div class="who-row"><button id="paperBtn" class="paperbtn">スマホなしで発券</button><span class="hico"><button id="histBtn" class="ico">履歴</button><button id="gearBtn" class="ico">設定</button><button id="userBtn" class="usrbtn" aria-label="アカウント"><span id="userName"></span></button></span></div>
     <button id="callNext" class="call btn-main">次の組を呼ぶ</button>
     <div class="stats" id="stats"></div>
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v33</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v34</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -76,7 +76,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=33"></script><script src="common.js?v=33"></script>
+<script src="firebase-config.js?v=34"></script><script src="common.js?v=34"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -84,7 +84,7 @@ const counter = () => db.collection('counters').doc(today());
 const del = () => firebase.firestore.FieldValue.delete();
 let list = [], cfg = {}, unsub = null, unsubCnt = null, cachedSince = 0;
 let holdEl = null, holdTimer = null, pendingRender = false;
-const label = t => `${t.paper ? '📄 ' : ''}${t.name ? esc(t.name) : '（名前なし）'} <small>${t.people}名</small>`;
+const label = t => `${t.paper ? '<span class="pmark">紙</span> ' : ''}${t.name ? esc(t.name) : '（名前なし）'} <small>${t.people}名</small>`;
 const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const fmtT = ms => ms ? new Date(ms).toLocaleTimeString('ja-JP', { hour12: false }) : '';
 
@@ -265,6 +265,9 @@ function scheduleSummary() {
   }, 800);
 }
 
+// モニターが「止まっていない」と分かるよう、内容が変わらなくても1分ごとに更新時刻だけ書き直す
+setInterval(() => { if (auth.currentUser && lastSummary) summaryRef().set({ ...buildSummary(list), updatedAt: Date.now() }).catch(() => {}); }, 60000);
+
 /* ---------- 操作（クリック・長押し） ---------- */
 document.addEventListener('click', e => {
   if (e.target.id === 'rsheet') { closeSheet(); return; }
@@ -300,7 +303,7 @@ function renderCheck() {
   if (!t) { box.innerHTML = `<div class="check bad"><div class="n">${v}</div><div class="s">該当する番号がありません</div></div>`; return; }
   const info = `<div style="font-size:20px;font-weight:800;margin-top:6px">${label(t)}</div>`;
   let cls, text, btn = '';
-  if (isDone(t)) { cls = 'ok'; text = '入室済み ✔'; }
+  if (isDone(t)) { cls = 'ok'; text = '入室済み'; }
   else if (t.status === 'called') { cls = 'warn'; text = '呼び出し中（まだ入室していません）'; btn = `<button class="full btn-ok" style="min-height:60px;font-size:20px" data-a="enter" data-id="${t.id}">入室済みにする</button>`; }
   else if (t.status === 'waiting') { cls = 'none'; text = 'まだ呼び出していません（順番待ち）'; }
   else { cls = 'bad'; text = t.status === 'cancelled' ? '無効です（キャンセル）' : '無効です（欠席）'; if (t.status === 'absent') btn = `<button class="full btn-ok" style="min-height:60px;font-size:20px" data-a="restore" data-id="${t.id}">呼び出し中に戻す</button>`; }
@@ -322,7 +325,7 @@ function renderHist() {
   $('hlist').innerHTML = ls.length ? ls.map(t => `<div class="hrow ${t.status}" data-num="${t.number}">
       <div class="hn">${t.number}</div>
       <div class="hm"><div class="who">${label(t)} <span class="pill ${isDone(t) ? 'inroom' : t.status}">${stateName(t)}</span></div><div class="ho">${outline(t)}</div></div>
-      <button class="ico2" data-a="check" data-id="${t.id}" aria-label="詳しく見る">🔍</button></div>`).join('')
+      <button class="ico2" data-a="check" data-id="${t.id}" aria-label="詳しく見る">詳しく</button></div>`).join('')
     : '<div class="box" style="color:#8a93a6">該当する整理券はありません</div>';
 }
 $('histBtn').onclick = () => { $('hist').hidden = false; renderHist(); };

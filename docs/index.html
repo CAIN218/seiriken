@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="customer.css?v=33"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="customer.css?v=34"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=33"></script><script src="push-store.js?v=33"></script><script src="common.js?v=33"></script>
+<script src="firebase-config.js?v=34"></script><script src="push-store.js?v=34"></script><script src="common.js?v=34"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -27,7 +27,7 @@ const audioOn = () => !!actx && actx.state === 'running';
 // 音が実際に鳴る状態かどうかで、通知ボタンの表示を切り替える
 function updNotif() {
   const b = document.getElementById('notif'); if (!b) return;
-  b.textContent = audioOn() ? '🔔 通知オン（タップで音を確認）' : '🔕 タップして音をオンにする';
+  b.textContent = audioOn() ? '音はオンです（タップで音を確認）' : '音をオンにする';
   b.className = audioOn() ? 'btn sub' : 'btn';
 }
 function ensureAudio() {
@@ -95,10 +95,10 @@ async function enablePush() {
   refreshPushState();
 }
 const pushUi = () => {
-  if (pushState === 'on') return '<div class="small c">✅ 画面を閉じていても、通知が届きます</div>';
-  if (pushState === 'off') return '<button class="btn" id="pushBtn">📲 画面を閉じていても通知を受け取る</button>';
+  if (pushState === 'on') return '<div class="small c">画面を閉じていても、通知が届きます</div>';
+  if (pushState === 'off') return '<button class="btn" id="pushBtn">画面を閉じていても通知を受け取る</button>';
   if (pushState === 'denied') return '<div class="small c">通知がブロックされています。ブラウザの設定で、このサイトの通知を許可してください。</div>';
-  if (pushState === 'needInstall') return '<div class="card small"><b>画面を閉じていても通知を受け取るには（iPhone）</b><br>①下の共有ボタン（□に↑）を押す　②「ホーム画面に追加」を押す　③ホーム画面にできたアイコンから開き直す<br>（今の整理券は、そのまま引き継がれます）</div>';
+  if (pushState === 'needInstall') return '<div class="card small"><b>画面を閉じていても通知を受け取るには（iPhone）</b><br>①下の共有ボタンを押す　②「ホーム画面に追加」を押す　③ホーム画面にできたアイコンから開き直す<br>（今の整理券は、そのまま引き継がれます）</div>';
   return '';
 };
 if (PUSH_URL && pushOk && !(isIOS && !isStandalone)) navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -142,7 +142,7 @@ function leave() { try { localStorage.removeItem(KEY); const u = new URL(locatio
 
 /* ---------- 画面 ---------- */
 const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div></div></div>`; };
-const notifyBtn = () => `<button class="btn ${audioOn() ? 'sub' : ''}" id="notif">${audioOn() ? '🔔 通知オン（タップで音を確認）' : '🔕 タップして音をオンにする'}</button><div class="small c" id="vibNote">iPhoneでは振動しません。この画面を開いたままにしてください。</div>`;
+const notifyBtn = () => `<button class="btn ${audioOn() ? 'sub' : ''}" id="notif">${audioOn() ? '音はオンです（タップで音を確認）' : '音をオンにする'}</button><div class="small c" id="vibNote">iPhoneでは振動しません。この画面を開いたままにしてください。</div>`;
 const cancelBtn = () => '<div class="c"><button class="linkbtn" id="cancel">整理券をキャンセルする</button></div>';
 // 半券：整理券番号の控え。同じ見た目の層を2枚重ね、指より左（もう破れた側）を左の層に見せる
 const stubPaper = hint => `<div class="sp"><div class="sp-row"><span class="sp-lab">半券</span><span class="sp-num">${me.number}番</span></div>${hint ? `<div class="sp-hint">${hint}</div>` : ''}</div>`;
@@ -175,14 +175,14 @@ function viewTicket() {
   const ahead = idx >= 0 ? idx : li.filter(n => n < me.number).length;
   const ppl = `${me.people}名`;
   const body = extra => `<div class="tk-main">${tkHead}<div class="tk-num">${me.number}</div><div class="tk-who">${ppl}</div>${extra || ''}</div>`;
-  // 切り取り線。左端の丸い切り込みに、✂ のつまみを置く（呼ばれる前は🔒）
-  const perf = on => `<div class="tk-perf"><i class="n l"></i><i class="n r"></i><div class="zig"></div>${on ? '<div class="tear-h" id="tearH">✂<span class="tl">なぞってもぎる →</span></div>' : '<div class="tear-h off">🔒</div>'}</div>`;
+  // 切り取り線。左端の丸い切り込みに、丸いつまみを置く（呼ばれる前はグレー）
+  const perf = on => `<div class="tk-perf"><i class="n l"></i><i class="n r"></i><div class="zig"></div>${on ? '<div class="tear-h" id="tearH"><span class="tl">なぞってもぎる →</span></div>' : '<div class="tear-h off"></div>'}</div>`;
 
   if (me.status === 'called') {
     return shell('call', `<div class="h1 c" id="hd" style="font-size:clamp(24px,7.4vw,34px)">待機室へお越しください</div>
       <div class="tk call">${body()}${perf(true)}<div class="tk-stub">${stubHtml(true)}</div></div>
       ${tearErr ? '<div class="err c" id="tearErr">通信できませんでした。もう一度なぞってください</div>' : ''}`,
-      `<div class="small c">待機室で、✂ から右へなぞって半券をもぎり、スタッフにこの画面をお見せください。画面をタップすると音が止まります。</div>`);
+      `<div class="small c">待機室で、丸いつまみから右へなぞって半券をもぎり、スタッフにこの画面をお見せください。画面をタップすると音が止まります。</div>`);
   }
   if (me.status === 'inroom' || me.status === 'guided') {
     return shell('in', `<div class="h1 c" style="font-size:clamp(24px,7.4vw,34px)">入室しました</div>

@@ -2,36 +2,117 @@
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>案内状況</title>
 <style>
-body{margin:0;background:#eef3f7;color:#26303f;font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;min-height:100vh;display:flex;flex-direction:column}
-main{flex:1;display:flex;flex-direction:column;gap:2.2vh;padding:3vh 4vw;max-width:1400px;width:100%;margin:0 auto;box-sizing:border-box}
-h1{margin:0;text-align:center;font-size:clamp(1.4rem,3.4vw,2.6rem);letter-spacing:.06em;color:#2f5d50}
-.card{background:#fff;border-radius:28px;padding:3vh 3vw;text-align:center;box-shadow:0 4px 18px rgba(60,50,30,.1)}
-.card.call{background:#f1eefb;border:3px solid #cfc6ec}
-.lab{font-size:clamp(1.2rem,3vw,2.4rem);font-weight:800;color:#5a6378}
-.card.call .lab{color:#5b4fa0}
-.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:1.4vw;margin-top:1.6vh}
-.big{font-size:clamp(5rem,17vw,13rem);font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums;padding:0 2vw}
-.chip{font-size:clamp(2rem,min(6.5vw,9vh),5rem);font-weight:900;font-variant-numeric:tabular-nums;background:#eef0f3;border-radius:20px;padding:.1em .45em}
-.card.call .chip{background:#fff;border:3px solid #cfc6ec;font-size:clamp(4rem,min(15vw,21vh),12rem);line-height:1.1}
-.none{font-size:clamp(1.4rem,3.5vw,2.8rem);color:#8a93a6;font-weight:700;margin-top:1.6vh}
-.foot{text-align:center;font-size:clamp(1rem,2vw,1.6rem);color:#5a6378;font-weight:700}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;overflow:hidden;background:#eef3f7;color:#26303f;font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif}
+.wrap{height:100vh;height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:1.4vh;padding:2vh 2.5vw}
+h1{margin:0;text-align:center;font-size:clamp(1.2rem,min(3vw,5vh),2.6rem);letter-spacing:.06em;color:#2f5d50}
+.main{display:grid;gap:2vh;min-height:0;grid-template-rows:minmax(0,1fr) auto auto;grid-template-areas:"called" "next" "qr"}
+@media (orientation:landscape){.main{grid-template-columns:3fr 2fr;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"called next" "called qr"}}
+.card{background:#fff;border-radius:2.4vmin;padding:2vh 2vw;text-align:center;box-shadow:0 4px 18px rgba(60,50,30,.1);min-height:0;min-width:0}
+.lab{font-size:clamp(1rem,min(2.6vw,4.4vh),2.2rem);font-weight:800;color:#5a6378}
+.called{grid-area:called;background:#f1eefb;border:3px solid #cfc6ec;display:flex;flex-direction:column;overflow:hidden}
+.called .lab{color:#5b4fa0}
+#called{flex:1;min-height:0;display:grid;grid-template-columns:repeat(var(--cols,1),1fr);gap:1.2vh 1.2vw;align-content:center;justify-items:center;align-items:center;margin-top:1vh}
+.chip{display:inline-block;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.15;background:#fff;border:3px solid #cfc6ec;border-radius:.22em;padding:0 .35em;transition:background .6s,border-color .6s}
+.chip.new{border-color:#7b6bd0;background:#e9e4fa}
+.none{color:#8a93a6;font-weight:700;font-size:clamp(1.2rem,3vw,2.4rem)}
+.next{grid-area:next}
+#up{display:flex;flex-wrap:wrap;justify-content:center;gap:.8vw;margin-top:1vh}
+#up .chip{font-size:clamp(1.4rem,min(4.2vw,7vh),4rem);background:#eef0f3;border-color:#eef0f3}
+.qr{grid-area:qr;display:flex;align-items:center;justify-content:center;gap:2vw;min-height:0}
+.qr[hidden]{display:none}
+#qr{height:min(30vh,20vw);width:min(30vh,20vw);flex:none}
+#qr svg{width:100%;height:100%;display:block}
+.qt{text-align:left}
+.qt .a{white-space:nowrap;font-size:clamp(1.1rem,min(2.3vw,4vh),2.4rem);font-weight:900;color:#2f5d50}
+.qt .b{font-size:clamp(1rem,min(2.2vw,3.6vh),2rem);font-weight:700;color:#5a6378;margin-top:.4em}
+.stop{grid-area:qr;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f3e4e4;border:3px solid #e3c4c4}
+.stop .a{font-size:clamp(1.3rem,min(3vw,5vh),2.8rem);font-weight:900;color:#8a2f2f}
+.stop .b{font-size:clamp(1rem,min(2.2vw,3.6vh),2rem);font-weight:700;color:#5a6378;margin-top:.5em}
+.foot{text-align:center;font-size:clamp(.8rem,1.6vw,1.2rem);color:#8a93a6;font-weight:700}
+.foot.warn{color:#8a2f2f}
 </style></head>
-<body><main>
+<body><div class="wrap">
 <h1 id="ttl"></h1>
-<div class="card call"><div class="lab">待機室へお越しください</div><div class="chips" id="called"></div></div>
-<div class="card"><div class="lab">次の順番</div><div class="chips" id="up"></div></div>
-<div class="foot">順番待ち <b id="wait">0</b> 組</div>
-</main>
+<div class="main">
+  <div class="card called"><div class="lab">待機室へお越しください</div><div id="called"></div></div>
+  <div class="card next"><div class="lab">次の順番</div><div id="up"></div></div>
+  <div class="card qr" id="qrBox"><div id="qr"></div><div class="qt"><div class="a">スマホで整理券</div><div class="b" id="eta"></div></div></div>
+  <div class="card stop" id="stopBox" hidden></div>
+</div>
+<div class="foot" id="foot"></div>
+</div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=33"></script><script src="common.js?v=33"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="firebase-config.js?v=34"></script><script src="common.js?v=34"></script>
 <script>
-document.getElementById('ttl').textContent = EVENT_TITLE;
-const chips = (ns, none) => ns.length ? ns.map(n => `<span class="chip">${n}</span>`).join('') : `<div class="none">${none}</div>`;
+const $ = id => document.getElementById(id);
+const ISSUE_URL = 'https://cain218.github.io/seiriken/';
+$('ttl').textContent = EVENT_TITLE;
+let sm = {}, cfg = {}, prev = null;
+const fresh = {}; // 新しく呼ばれた番号 → 呼ばれた時刻
+const fmtHM = ms => new Date(ms).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+// QR（ライブラリで作り、SVGにして描く。読み込めなかったときは何も出さない）
+try {
+  const q = qrcode(0, 'M'); q.addData(ISSUE_URL); q.make();
+  const n = q.getModuleCount(), m = 2; let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c + m} ${r + m}h1v1h-1z`;
+  $('qr').innerHTML = `<svg viewBox="0 0 ${n + m * 2} ${n + m * 2}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#1c2233"/></svg>`;
+} catch (e) { $('qr').hidden = true; }
+
+// 呼び出し中の番号は全件出す。件数に合わせて、1画面に収まる最大の文字サイズにする
+function fit() {
+  const box = $('called'), ns = (sm.called || []);
+  const n = ns.length; if (!n) return;
+  const W = box.clientWidth, H = box.clientHeight, digits = Math.max(...ns.map(x => String(x).length));
+  const wf = digits * 0.62 + 0.9, hf = 1.15 + 0.25; // 1つ分の幅・高さ（文字サイズ比）
+  let best = { fs: 0, cols: 1 };
+  for (let cols = 1; cols <= n; cols++) {
+    const rows = Math.ceil(n / cols), fs = Math.min(W / cols / (wf + 0.4), H / rows / hf, innerHeight * 0.2);
+    if (fs > best.fs) best = { fs, cols };
+  }
+  box.style.setProperty('--cols', best.cols); box.style.fontSize = Math.floor(best.fs) + 'px';
+}
+function render() {
+  const ns = sm.called || [];
+  $('called').innerHTML = ns.length ? ns.map(n => `<span class="chip ${fresh[n] && Date.now() - fresh[n] < 5000 ? 'new' : ''}">${n}</span>`).join('') : '<div class="none">呼び出し中の組はありません</div>';
+  if (!ns.length) $('called').style.fontSize = ''; else fit();
+  $('up').innerHTML = (sm.line || []).slice(0, 5).map(n => `<span class="chip">${n}</span>`).join('') || '<span class="none">なし</span>';
+  // 発行できないとき（停止中）は、QRを隠して案内を出す
+  const closed = !!cfg.closed;
+  $('qrBox').hidden = closed; $('stopBox').hidden = !closed;
+  if (closed) $('stopBox').innerHTML = `<div class="a">ただいま整理券の発行を停止しています</div>${cfg.closedReason ? `<div class="b">理由：${esc(cfg.closedReason)}</div>` : ''}${cfg.reopenAt ? `<div class="b">再開の予定：${esc(cfg.reopenAt)}</div>` : ''}`;
+  // 今から発券したときの待ち時間（お客さん画面と同じ計算：待ち組数 × 平均間隔）
+  const wc = sm.waitCount || 0, mins = Math.round(wc * (sm.avgGapSec || DEFAULT_GAP_SEC) / 60);
+  $('eta').textContent = cfg.showWait === false ? '' : wc ? `今から発券すると 約${Math.max(1, mins)}分` : '今から発券すると すぐにご案内できます';
+  stale();
+}
+function stale() {
+  const u = sm.updatedAt, f = $('foot');
+  if (!u || Date.now() - u > 120000) { f.textContent = '表示が止まっています（スタッフ画面を開いてください）'; f.className = 'foot warn'; }
+  else { f.textContent = '最終更新 ' + fmtHM(u); f.className = 'foot'; }
+}
+setInterval(stale, 10000);
+addEventListener('resize', () => { if ((sm.called || []).length) fit(); });
 summaryRef().onSnapshot(d => {
-  const sm = d.exists ? d.data() : {};
-  document.getElementById('called').innerHTML = chips((sm.called || []).slice(0, 6), '呼び出し中の組はありません');
-  document.getElementById('up').innerHTML = chips((sm.line || []).slice(0, 5), 'なし');
-  document.getElementById('wait').textContent = sm.waitCount || 0;
+  sm = d.exists ? d.data() : {};
+  const now = Date.now(), cur = sm.called || [];
+  if (prev) cur.forEach(n => { if (!prev.includes(n)) { fresh[n] = now; setTimeout(render, 5100); } });
+  prev = cur.slice();
+  render();
 });
+db.collection('counters').doc(today()).onSnapshot(d => { cfg = d.exists ? d.data() : {}; render(); });
+
+// タップで全画面にして、画面が消えないようにする（失敗しても何も出さない）
+let lock = null, wantLock = false;
+async function getLock() { try { if (navigator.wakeLock) lock = await navigator.wakeLock.request('screen'); } catch (e) {} }
+document.addEventListener('click', () => {
+  try { const el = document.documentElement; if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {}); } catch (e) {}
+  wantLock = true; getLock();
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && wantLock) getLock(); });
 </script></body></html>

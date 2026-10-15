@@ -52,7 +52,7 @@ function buildSummary(list) {
     line: list.filter(inLine).sort(byOrder).map(t => t.number),
     waitCount: list.filter(isActive).length,
     roomCount: list.filter(inRoom).length,
-    called: list.filter(inRoom).sort((a, b) => calledAtOf(b) - calledAtOf(a)).map(t => t.number), // 呼び出し中の番号（モニター用。新しい順）
+    called: list.filter(inRoom).sort((a, b) => calledAtOf(a) - calledAtOf(b)).map(t => t.number), // 呼び出し中の番号（モニター用。呼んだ順）
     avgGapSec: gaps.length >= 2 ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null
   };
 }
