@@ -19,7 +19,7 @@ async function show() {
   try {
     const id = await idbGet('ticketId');
     const t = id && await getDoc('tickets/' + id);
-    if (t && t.status === 'called') { title = '受付までお越しください'; body = `整理券 ${t.number}番の順番です。`; tag = 'called'; }
+    if (t && t.status === 'called') { title = '待機室へお越しください'; body = `整理券 ${t.number}番の順番です。`; tag = 'called'; }
     else if (t && t.status === 'waiting') {
       const sum = await getDoc('summary/' + jstDay()), i = ((sum && sum.line) || []).indexOf(t.number);
       if (i >= 0 && i <= SOON) { title = 'まもなく順番です'; body = '会場の近くでお待ちください。'; tag = 'soon'; }

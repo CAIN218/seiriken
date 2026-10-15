@@ -27,14 +27,6 @@ body.st-call{--bg:#eeeaf8}
 .err{color:var(--bad);font-weight:700;font-size:18px}
 .banner{border-radius:14px;padding:12px 14px;font-weight:800;text-align:center;font-size:18px}
 .banner.test{background:#f3e7b8;color:#5c4400}
-/* 半券（もぎる前のスライダー） */
-.stub{position:relative;border-radius:16px;background:#fff;border:2px dashed var(--ok);padding:10px}
-.tear{position:relative;height:64px;border-radius:14px;background:#e4f1ed;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
-.off .tear{background:#e6e6e3}
-.tear-txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ok);font-weight:900;font-size:19px;opacity:calc(1 - var(--p,0));padding-left:44px}
-.off .tear-txt{color:#8a8f96}
-.tear-h{position:absolute;left:4px;top:4px;width:56px;height:56px;border-radius:12px;background:var(--ok);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;touch-action:none;cursor:grab}
-.off .tear-h{background:#b9bcc0;cursor:not-allowed}
 /* チケット */
 @property --p{syntax:'<number>';inherits:true;initial-value:0}
 .tk{--p:0;position:relative;color:var(--fg)}
@@ -65,7 +57,6 @@ body.st-call{--bg:#eeeaf8}
 
 /* 呼び出し中のチケットは、淡いラベンダーの縁取り */
 .tk.call .tk-main{border:2px solid #cfc6ec;border-bottom:0}
-.tk.call .sf{border:2px solid #cfc6ec;border-top:0}
 .tk.call .tk-title{color:#5b4fa0}
 .tk.call .tk-perf::before{border-top-color:#b8acdf}
 .tk-note{font-size:14px;font-weight:700;color:var(--sub);margin-top:2px}
@@ -75,17 +66,10 @@ body.st-call{--bg:#eeeaf8}
 .oc{min-width:44px;padding:4px 8px;border-radius:10px;background:#eef0f3;font-weight:900;font-size:20px;font-variant-numeric:tabular-nums}
 .oc.me{background:var(--accent);color:#fff}.oc.dots{background:none;min-width:0;padding:4px 0}
 .oc{display:flex;flex-direction:column;align-items:center;line-height:1.15}.oc small{font-size:11px;font-weight:700;color:var(--sub)}.oc.me small{color:#e4f1ed}.oc{font-size:18px}
-.tear-txt small{display:block;font-size:12px;font-weight:700;opacity:.85;margin-top:1px;text-align:center}.tear-txt{text-align:center;line-height:1.2}
 
 /* 半券：なぞった位置から、ギザギザの切り口で左側から徐々にめくれる */
 .tk{--tooth:calc(var(--p)*11px)}
 .tk-stub{position:relative}
-.sf{background:#fff;border-radius:0 0 18px 18px;padding:12px 12px 12px}
-.strack{position:relative;height:60px;border-radius:14px;background:#e4f1ed;display:flex;align-items:center;justify-content:center;padding-left:56px}
-.stx{color:var(--ok);font-weight:900;font-size:clamp(19px,5.6vw,22px)}
-.off .strack{background:#e6e6e3}.off .stx{color:#8a8f96}.strack .tear-h{left:4px;top:2px}
-.tk-stub .tear{position:absolute;left:14px;right:14px;bottom:14px;height:60px;background:none;overflow:visible;border-radius:0}
-.tk-stub .tear .tear-h{top:2px}
 
 /* 発行画面：やさしい色味を足す */
 body.st-none{--bg:#e8f2ee}
@@ -94,9 +78,6 @@ body.st-none .tk-main.full{background:linear-gradient(#e3f2ec 0,#e3f2ec 46px,#ff
 body.st-none .seg button.on{background:#3a7d6e;color:#fff;border-color:#3a7d6e}
 
 /* 半券をもぎる：なぞった分だけ破れて、半券が左から垂れ下がる */
-.tk-stub{transform-origin:100% 0;transform:translateY(calc(var(--p)*6px)) rotate(calc(var(--p)*5deg));will-change:transform}
-.tk-stub .tear,.tear-h{touch-action:none}
-.stx{opacity:calc(1 - var(--p)*1.8)}
 /* ギザギザの破れ目（点線の上に重ね、--p の分だけ左から見せる） */
 .zig,.tk-perf::after{position:absolute;left:16px;right:16px;pointer-events:none;clip-path:inset(0 calc((1 - var(--p))*100%) 0 0)}
 .zig{top:-7px;height:14px;background:var(--pg);z-index:3;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpolygon points='0,3 7,0 14,3 14,11 7,14 0,11' fill='%23000'/%3E%3C/svg%3E") repeat-x 0 0/14px 14px;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpolygon points='0,3 7,0 14,3 14,11 7,14 0,11' fill='%23000'/%3E%3C/svg%3E") repeat-x 0 0/14px 14px}
@@ -110,9 +91,9 @@ body.st-none .seg button.on{background:#3a7d6e;color:#fff;border-color:#3a7d6e}
 .tk.ripped .tear-h{opacity:0}
 .tk.ripped .tk-stub{animation:fall .65s linear forwards;pointer-events:none}
 @keyframes fall{
-  0%{transform:translateY(6px) rotate(5deg);animation-timing-function:ease-out}
-  15%{transform:translateY(-2px) rotate(5deg);animation-timing-function:cubic-bezier(.5,0,.9,.4)}
-  100%{transform:translate(var(--fx,0),110vh) rotate(var(--fr,18deg))}}
+  0%{transform:none;animation-timing-function:ease-out}
+  15%{transform:translateY(-8px);animation-timing-function:cubic-bezier(.5,0,.9,.4)}
+  100%{transform:translate(var(--fx,0),110vh) rotate(var(--fr,-18deg))}}
 .stamp.pop{animation:stampin .18s ease-in both}
 @keyframes stampin{from{transform:scale(1.8) rotate(-6deg);opacity:0}to{transform:scale(1) rotate(-6deg);opacity:1}}
 .tk.shake{animation:shake .08s linear}
@@ -120,7 +101,7 @@ body.st-none .seg button.on{background:#3a7d6e;color:#fff;border-color:#3a7d6e}
 .tk.back .tk-stub{animation:fadein .3s ease-out}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){
-  .tk-stub{transform:none}
+  .slw.l{transform:none}
   .tk.ripped .tk-main,.tk.shake{animation:none}
   .tk.ripped .tk-stub{animation:fadeout .3s ease-out forwards}
   .stamp.pop{animation:fadein .2s ease-out both}
@@ -132,3 +113,24 @@ body.st-none .seg button.on{background:#3a7d6e;color:#fff;border-color:#3a7d6e}
 .tk.in .tk-main{border-color:#b9d9cb}
 .tk.in .tk-title{color:#2f5d50}
 .tk-times{margin-top:14px}
+
+/* 半券：整理券番号の控え。2枚重ねて、指より左が先に破れて垂れる */
+.tk{margin-left:10px;margin-right:10px}
+.tk-stub{position:relative}
+.sp{background:#fff;border:2px dashed #b9c4be;border-top:0;border-radius:0 0 18px 18px;padding:16px 20px 14px;box-sizing:border-box}
+.tk.call .sp{border-color:#cfc6ec}
+.sp-row{display:flex;justify-content:space-between;align-items:baseline;color:var(--sub);font-weight:800}
+.sp-lab{letter-spacing:.5em;font-size:15px}
+.sp-num{font-size:20px;font-variant-numeric:tabular-nums;color:var(--fg)}
+.sp-hint{margin-top:6px;text-align:center;font-size:14px;font-weight:700;color:#8a8f96}
+.off .sp{background:#f1f1ee}
+.slw{filter:drop-shadow(0 3px 5px rgba(60,50,30,.18))}
+.slw.r{position:relative}
+.slw.l{position:absolute;inset:0;transform-origin:calc(var(--p)*100%) 0;transform:rotate(calc(var(--p)*-12deg));will-change:transform}
+.slw.r .sl{clip-path:inset(0 0 0 calc(var(--p)*100%))}
+.slw.l .sl{clip-path:inset(0 calc((1 - var(--p))*100%) 0 0)}
+.tk-perf .tear-h{position:absolute;left:-20px;top:-20px;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:var(--ok);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;z-index:5;touch-action:none;cursor:grab;box-shadow:0 2px 6px rgba(0,0,0,.28);will-change:transform;user-select:none;-webkit-user-select:none}
+.tk-perf .tear-h.off{background:#c3c8cc;box-shadow:none;cursor:default;pointer-events:none}
+.tear-h .tl{position:absolute;left:0;top:46px;white-space:nowrap;font-size:13px;font-weight:800;color:var(--ok);background:rgba(255,255,255,.95);padding:2px 10px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .15s;transform:translateX(calc(var(--p)*-100%))}
+.tk.tdrag .tl{opacity:1}
+.tk-stub{transform-origin:50% 50%}

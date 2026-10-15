@@ -14,11 +14,10 @@ function today() {
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-// 状態: waiting(順番待ち) → called(呼び出し中)。飛ばし中は called のまま skipped:true を付けて表す → inroom(入室済み・ここで完了) / absent(欠席) / cancelled(取り消し)。guided は旧バージョンの名前で、inroom と同じ扱い
+// 状態: waiting(順番待ち) → called(呼び出し中) → inroom(入室済み・ここで完了) / absent(欠席) / cancelled(取り消し)。guided は旧バージョンの名前で、inroom と同じ扱い。旧データの skipped:true は呼び出し中として扱う
 const isActive = t => t.status === 'waiting';                       // 順番待ち
 const inLine = t => t.status === 'waiting';                         // 呼び出しの順番に並ぶ組
-const inRoom = t => t.status === 'called' && !t.skipped;          // 呼び出し中の組（飛ばし中は含まない。入室したら完了）
-const isSkipped = t => t.status === 'called' && !!t.skipped;       // 呼び出し中のまま、順番を後ろにしている組
+const inRoom = t => t.status === 'called';                         // 呼び出し中の組（入室したら完了）
 const isDone = t => t.status === 'inroom' || t.status === 'guided'; // 入室済み（旧「案内済み」を含む）
 const orderKey = t => (t.orderKey != null ? t.orderKey : t.number); // 順番（後ろに回すと大きくなる。番号は変わらない）
 const byOrder = (a, b) => orderKey(a) - orderKey(b) || a.number - b.number;
@@ -30,7 +29,7 @@ function watchTickets(cb) {
     const list = snap.docs.map(d => {
       const t = { id: d.id, ...d.data() };
       if (t.status === 'arrived') t.status = 'inroom'; // 旧バージョンの状態名
-      if (t.status === 'skipped') { t.status = 'called'; t.skipped = true; } // 旧バージョンの状態名
+      if (t.status === 'skipped') t.status = 'called'; // 旧バージョンの状態名
       return t;
     }).sort((a, b) => a.number - b.number);
     cb(list, !!(snap.metadata && snap.metadata.fromCache));

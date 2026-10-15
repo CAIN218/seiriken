@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="customer.css?v=29"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="customer.css?v=30"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=29"></script><script src="push-store.js?v=29"></script><script src="common.js?v=29"></script>
+<script src="firebase-config.js?v=30"></script><script src="push-store.js?v=30"></script><script src="common.js?v=30"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -45,14 +45,6 @@ function beep(n) {
     o.connect(g); g.connect(actx.destination); o.frequency.value = i % 2 ? 660 : 880; g.gain.value = 0.3;
     const t = actx.currentTime + i * 0.28; o.start(t); o.stop(t + 0.2);
   }
-}
-function rip() {
-  if (!actx) return;
-  const len = Math.floor(actx.sampleRate * 0.4), buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.5) * (0.55 + 0.45 * Math.sin(i / 40));
-  const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
-  src.buffer = buf; f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 0.7; g.gain.value = 0.9;
-  src.connect(f); f.connect(g); g.connect(actx.destination); src.start();
 }
 const vibrate = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
 function note(title, body) { try { if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body }); } catch (e) {} }
@@ -119,7 +111,7 @@ function subMe() {
   unsubMe = db.collection('tickets').doc(id).onSnapshot({ includeMetadataChanges: true }, d => {
     okSnap(d);
     if (!d.exists) { try { localStorage.removeItem(KEY); } catch (e) {} myId = null; me = null; st = {}; }
-    else { try { const u = new URL(location.href); if (u.searchParams.get('t') !== id) { u.searchParams.set('t', id); history.replaceState(null, '', u); } } catch (e) {} me = { id, ...d.data() }; if (me.status === 'arrived') me.status = 'inroom'; if (me.status === 'skipped') { me.status = 'called'; me.skipped = true; } }
+    else { try { const u = new URL(location.href); if (u.searchParams.get('t') !== id) { u.searchParams.set('t', id); history.replaceState(null, '', u); } } catch (e) {} me = { id, ...d.data() }; if (me.status === 'arrived') me.status = 'inroom'; if (me.status === 'skipped') me.status = 'called'; }
     render();
   });
 }
@@ -152,12 +144,11 @@ function leave() { try { localStorage.removeItem(KEY); const u = new URL(locatio
 const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div></div></div>`; };
 const notifyBtn = () => `<button class="btn ${audioOn() ? 'sub' : ''}" id="notif">${audioOn() ? '🔔 通知オン（タップで音を確認）' : '🔕 タップして音をオンにする'}</button><div class="small c" id="vibNote">iPhoneでは振動しません。この画面を開いたままにしてください。</div>`;
 const cancelBtn = () => '<div class="c"><button class="linkbtn" id="cancel">整理券をキャンセルする</button></div>';
-// 半券。もぎる前の面（sf）を2枚重ね、なぞった位置から左側を めくれた面（flap）として持ち上げる
-// 半券。なぞった位置から左側が、ギザギザの切り口で消えていく
-const stubFace = (handle) => `<div class="sf"><div class="strack"><span class="stx">受付でめくってください</span>${handle || ''}</div></div>`;
-const stubHtml = (enabled) => enabled
-  ? `<div class="sl base">${stubFace()}</div><div class="tear" id="tear"><div class="tear-h" id="tearH">➜</div></div>`
-  : `<div class="off">${stubFace('<div class="tear-h">🔒</div>')}</div>`;
+// 半券：整理券番号の控え。同じ見た目の層を2枚重ね、指より左（もう破れた側）を左の層に見せる
+const stubPaper = hint => `<div class="sp"><div class="sp-row"><span class="sp-lab">半券</span><span class="sp-num">${me.number}番</span></div>${hint ? `<div class="sp-hint">${hint}</div>` : ''}</div>`;
+const stubHtml = enabled => enabled
+  ? `<div class="slw r"><div class="sl">${stubPaper()}</div></div><div class="slw l"><div class="sl">${stubPaper()}</div></div>`
+  : `<div class="off">${stubPaper('呼ばれたら、ここをなぞってもぎります')}</div>`;
 
 const usrTag = () => me && me.name ? `<div class="usr">${esc(me.name)}さん</div>` : '';
 const tkHead = `<div class="tk-title">${esc(EVENT_TITLE)}</div><div class="tk-lab">整理券</div><div class="tk-note">待機室までの整理券です</div>`;
@@ -184,13 +175,14 @@ function viewTicket() {
   const ahead = idx >= 0 ? idx : li.filter(n => n < me.number).length;
   const ppl = `${me.people}名`;
   const body = extra => `<div class="tk-main">${tkHead}<div class="tk-num">${me.number}</div><div class="tk-who">${ppl}</div>${extra || ''}</div>`;
-  const perf = '<div class="tk-perf"><i class="n l"></i><i class="n r"></i><div class="zig"></div></div>';
+  // 切り取り線。左端の丸い切り込みに、✂ のつまみを置く（呼ばれる前は🔒）
+  const perf = on => `<div class="tk-perf"><i class="n l"></i><i class="n r"></i><div class="zig"></div>${on ? '<div class="tear-h" id="tearH">✂<span class="tl">なぞってもぎる →</span></div>' : '<div class="tear-h off">🔒</div>'}</div>`;
 
   if (me.status === 'called') {
-    return shell('call', `<div class="h1 c" id="hd" style="font-size:clamp(24px,7.4vw,34px)">受付までお越しください</div>
-      <div class="tk call">${body()}${perf}<div class="tk-stub">${stubHtml(true)}</div></div>
-      ${me.skipped ? '<div class="small c">順番を少し後ろにしています。着いたら、受付でめくってスタッフにお見せください。</div>' : ''}${tearErr ? '<div class="err c" id="tearErr">通信できませんでした。もう一度なぞってください</div>' : ''}`,
-      `<div class="small c">受付で、半券を右になぞってめくり、スタッフにこの画面をお見せください。画面をタップすると音が止まります。</div>`);
+    return shell('call', `<div class="h1 c" id="hd" style="font-size:clamp(24px,7.4vw,34px)">待機室へお越しください</div>
+      <div class="tk call">${body()}${perf(true)}<div class="tk-stub">${stubHtml(true)}</div></div>
+      ${tearErr ? '<div class="err c" id="tearErr">通信できませんでした。もう一度なぞってください</div>' : ''}`,
+      `<div class="small c">待機室で、✂ から右へなぞって半券をもぎり、スタッフにこの画面をお見せください。画面をタップすると音が止まります。</div>`);
   }
   if (me.status === 'inroom' || me.status === 'guided') {
     return shell('in', `<div class="h1 c" style="font-size:clamp(24px,7.4vw,34px)">入室しました</div>
@@ -212,7 +204,7 @@ function viewTicket() {
   const orderRow = idx >= 0 ? `<div class="tk-order"><div class="tk-lab" style="letter-spacing:.1em">呼び出しの順番</div><div class="ocs">${chips}</div><div class="small c" style="margin-top:6px">左から順にお呼びします</div></div>` : '';
   const info = `<div class="tk-eta"><div class="huge" style="font-size:clamp(44px,14vw,64px)">${aheadTxt}</div><div class="p">${soon ? 'まもなくお呼びします' : showWait() ? `目安：${eta}ごろ` : 'この画面でお待ちください'}</div></div>`;
   const top = (soon ? '<div class="h1 c" style="font-size:clamp(22px,6.4vw,30px)">会場の近くでお待ちください</div>' : '')
-    + `<div class="tk wait">${body(info + orderRow)}${perf}<div class="tk-stub">${stubHtml(false)}</div></div>`
+    + `<div class="tk wait">${body(info + orderRow)}${perf(false)}<div class="tk-stub">${stubHtml(false)}</div></div>`
     + (soon ? '' : `<div class="card p">${showWait() ? eta + 'ごろに、会場へお戻りください。' : ''}この画面を開いたままにしておくと、音でもお知らせします。</div>`);
   return shell(soon ? 'soon' : 'wait', top, notifyBtn() + pushUi() + cancelBtn());
 }
@@ -225,12 +217,12 @@ function render() {
   const key = me.status === 'waiting' ? (ahead <= SOON_AHEAD ? 'soon' : 'wait') : me.status;
   const changed = st.key !== undefined && st.key !== key;
   if (changed && key === 'soon') { beep(2); vibrate([300, 150, 300]); note('整理券 ' + me.number, 'まもなく順番です。会場の近くでお待ちください'); }
-  if (key === 'called' && (st.key !== 'called')) { startRing(); note('整理券 ' + me.number, '受付までお越しください'); }
+  if (key === 'called' && (st.key !== 'called')) { startRing(); note('整理券 ' + me.number, '待機室へお越しください'); }
   if (key !== 'called') stopRing();
-  if (me.status === 'called' && me.reNotifiedAt != null && st.re != null && st.re !== me.reNotifiedAt) { startRing(); note('整理券 ' + me.number, 'お待ちしています。受付までお越しください'); }
+  if (me.status === 'called' && me.reNotifiedAt != null && st.re != null && st.re !== me.reNotifiedAt) { startRing(); note('整理券 ' + me.number, 'お待ちしています。待機室へお越しください'); }
   st.re = me.reNotifiedAt != null ? me.reNotifiedAt : null; st.key = key;
   app.innerHTML = viewTicket();
-  document.title = key === 'called' ? '【受付までお越しください】整理券' : '整理券';
+  document.title = key === 'called' ? '【待機室へお越しください】整理券' : '整理券';
   wire(); tick();
 }
 
@@ -262,22 +254,22 @@ function wire() {
   setupTear();
 }
 
-/* ---------- 半券をめくる ---------- */
+/* ---------- 半券をもぎる ---------- */
 let tearErr = false;
 const ANDROID = /Android/i.test(navigator.userAgent);
 const reduceMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
 function setupTear() {
-  const tr = document.getElementById('tear'), h = document.getElementById('tearH');
-  if (!tr || !h) return;
-  const tk = tr.closest('.tk');
+  const h = document.getElementById('tearH');
+  if (!h) return;
+  const tk = h.closest('.tk');
   let sx = 0, drag = false, max = 1, x = 0, raf = 0, lastStep = 0, busy = false;
   const paint = () => { raf = 0; h.style.transform = `translateX(${x}px)`; tk.style.setProperty('--p', x / max); };
   h.onpointerdown = e => {
     if (busy) return;
     drag = true; dragging = true; sx = e.clientX; x = 0; lastStep = 0; h.style.opacity = '';
-    tk.classList.remove('snap');
-    max = Math.max(1, tr.clientWidth - h.offsetWidth - 8);
-    h.setPointerCapture(e.pointerId);
+    tk.classList.remove('snap'); tk.classList.add('tdrag');
+    max = Math.max(1, tk.clientWidth - 4);
+    h.setPointerCapture(e.pointerId); e.preventDefault();
   };
   h.onpointermove = e => {
     if (!drag) return;
@@ -291,53 +283,60 @@ function setupTear() {
   const finish = () => {
     if (!drag) return; drag = false; busy = true;
     if (raf) { cancelAnimationFrame(raf); raf = 0; }
-    tear(tr, tk, h).then(ok => { busy = false; if (!ok) { x = 0; h.style.transform = ''; } });
+    tear(tk, h).then(ok => { busy = false; if (!ok) x = 0; });
   };
   const end = () => {
     if (!drag) return;
     if (x >= max * 0.85) { finish(); return; }
     drag = false;
     if (raf) { cancelAnimationFrame(raf); raf = 0; }
-    // ばねのように元の位置へ
+    // ばねのように、左の層の角度とギザギザを元に戻す
     tk.classList.add('snap'); h.style.transition = 'transform .3s cubic-bezier(.3,1.4,.5,1)';
     h.style.transform = 'translateX(0)'; tk.style.setProperty('--p', 0);
-    setTimeout(() => { h.style.transition = ''; tk.classList.remove('snap'); dragging = false; if (pending) { pending = false; render(); } }, 320);
+    setTimeout(() => { h.style.transition = ''; tk.classList.remove('snap', 'tdrag'); dragging = false; if (pending) { pending = false; render(); } }, 320);
   };
   h.onpointerup = end; h.onpointercancel = end;
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-// もぎる。最後まで破り切る → 半券が落ちる → はんこ → 入室済み画面へ（見た目をそろえてあるので、つなぎ目は出ない）
-async function tear(tr, tk, h) {
+const TEAR_ERR = '<div class="err c" id="tearErr">通信できませんでした。もう一度なぞってください</div>';
+// もぎる。残りを一気に破り切る → 半券が落ちる → はんこ → 入室済み画面へ（見た目をそろえてあるので、つなぎ目は出ない）
+async function tear(tk, h) {
   const stub = tk.querySelector('.tk-stub'), main = tk.querySelector('.tk-main'), hd = document.getElementById('hd');
   const stampEl = document.createElement('div'); stampEl.className = 'stamp pop'; stampEl.textContent = '入室済み';
   const fail = () => {
     tearErr = true; dragging = false;
     // 落ちた半券を、フェードインで元に戻す
-    stampEl.remove(); tk.classList.remove('ripped', 'fin', 'in', 'shake'); tk.classList.add('call', 'back');
+    stampEl.remove(); tk.classList.remove('ripped', 'fin', 'in', 'shake', 'tdrag'); tk.classList.add('call', 'back');
     tk.style.setProperty('--p', 0); h.style.transform = ''; h.style.transition = ''; h.style.opacity = '';
-    if (hd) hd.textContent = '受付までお越しください';
+    if (hd) hd.textContent = '待機室へお越しください';
     document.body.className = 'st-call'; startRing();
-    if (!document.getElementById('tearErr')) tk.insertAdjacentHTML('afterend', '<div class="err c" id="tearErr">通信できませんでした。もう一度なぞってください</div>');
+    if (!document.getElementById('tearErr')) tk.insertAdjacentHTML('afterend', TEAR_ERR);
     setTimeout(() => tk.classList.remove('back'), 400);
-    if (pending) { pending = false; }
+    pending = false;
     return false;
   };
-  // 通信できないときは、動かす前にやめる
-  if (navigator.onLine === false) { tk.classList.add('snap'); h.style.transform = ''; tk.style.setProperty('--p', 0); setTimeout(() => tk.classList.remove('snap'), 320); tearErr = true; dragging = false; if (!document.getElementById('tearErr')) tk.insertAdjacentHTML('afterend', '<div class="err c" id="tearErr">通信できませんでした。もう一度なぞってください</div>'); return false; }
+  // 通信できないときは、動かす前に戻す
+  if (navigator.onLine === false) {
+    tk.classList.add('snap'); h.style.transition = 'transform .3s cubic-bezier(.3,1.4,.5,1)'; h.style.transform = 'translateX(0)'; tk.style.setProperty('--p', 0);
+    setTimeout(() => { tk.classList.remove('snap', 'tdrag'); h.style.transition = ''; }, 320);
+    tearErr = true; dragging = false;
+    if (!document.getElementById('tearErr')) tk.insertAdjacentHTML('afterend', TEAR_ERR);
+    return false;
+  }
   tearErr = false; const old = document.getElementById('tearErr'); if (old) old.remove();
-  stopRing(); ensureAudio(); rip(); vibrate([60, 40, 90]);
+  stopRing(); vibrate([60, 40, 90]);
   const reduce = reduceMotion();
   let failed = false;
   const save = db.collection('tickets').doc(me.id).update({ status: 'inroom', enteredAt: Date.now(), torn: true });
   const result = Promise.race([save.then(() => true), sleep(5000).then(() => { throw new Error('timeout'); })]);
   result.catch(() => { failed = true; });
-  // 1. 残りを一気に破り切る
+  // 1. 右の層も一気に破り切る
   tk.classList.add('fin'); tk.style.setProperty('--p', 1); h.style.transition = 'opacity .1s'; h.style.opacity = 0;
   await sleep(120); if (failed) return fail();
-  // 2. 半券が浮いて、落ちていく
+  // 2. 半券全体が、少し浮いてから落ちる
   tk.classList.remove('fin');
   stub.style.setProperty('--fx', (Math.random() * 40 - 20).toFixed(0) + 'px');
-  stub.style.setProperty('--fr', ((Math.random() < .5 ? -1 : 1) * (14 + Math.random() * 8)).toFixed(0) + 'deg');
+  stub.style.setProperty('--fr', (-(14 + Math.random() * 8)).toFixed(0) + 'deg');
   tk.classList.add('ripped');
   await sleep(reduce ? 200 : 300); if (failed) return fail();
   // 3. はんこ。同時に震えて、背景が入室済みの緑へ
