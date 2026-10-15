@@ -19,6 +19,8 @@ h1{margin:0;text-align:center;font-size:clamp(1.2rem,min(3vw,5vh),2.6rem);letter
 .chip.new{border-color:#7b6bd0;background:#e9e4fa}
 .none{color:#8a93a6;font-weight:700;font-size:clamp(1.2rem,3vw,2.4rem)}
 .next{grid-area:next}
+.wc{font-size:clamp(1.6rem,min(4.4vw,7.5vh),4.2rem);font-weight:900;color:#2f5d50;line-height:1.1;margin-bottom:.6vh}
+.wc b{font-size:1.5em;font-variant-numeric:tabular-nums}
 #up{display:flex;flex-wrap:wrap;justify-content:center;gap:.8vw;margin-top:1vh}
 #up .chip{font-size:clamp(1.4rem,min(4.2vw,7vh),4rem);background:#eef0f3;border-color:#eef0f3}
 .qr{grid-area:qr;display:flex;align-items:center;justify-content:center;gap:2vw;min-height:0}
@@ -38,7 +40,7 @@ h1{margin:0;text-align:center;font-size:clamp(1.2rem,min(3vw,5vh),2.6rem);letter
 <h1 id="ttl"></h1>
 <div class="main">
   <div class="card called"><div class="lab">待機室へお越しください</div><div id="called"></div></div>
-  <div class="card next"><div class="lab">次の順番</div><div id="up"></div></div>
+  <div class="card next"><div class="wc">順番待ち <b id="wc">0</b> 組</div><div class="lab">次の順番</div><div id="up"></div></div>
   <div class="card qr" id="qrBox"><div id="qr"></div><div class="qt"><div class="a">スマホで整理券</div><div class="b" id="eta"></div></div></div>
   <div class="card stop" id="stopBox" hidden></div>
 </div>
@@ -47,7 +49,7 @@ h1{margin:0;text-align:center;font-size:clamp(1.2rem,min(3vw,5vh),2.6rem);letter
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
-<script src="firebase-config.js?v=34"></script><script src="common.js?v=34"></script>
+<script src="firebase-config.js?v=35"></script><script src="common.js?v=35"></script>
 <script>
 const $ = id => document.getElementById(id);
 const ISSUE_URL = 'https://cain218.github.io/seiriken/';
@@ -81,6 +83,7 @@ function render() {
   const ns = sm.called || [];
   $('called').innerHTML = ns.length ? ns.map(n => `<span class="chip ${fresh[n] && Date.now() - fresh[n] < 5000 ? 'new' : ''}">${n}</span>`).join('') : '<div class="none">呼び出し中の組はありません</div>';
   if (!ns.length) $('called').style.fontSize = ''; else fit();
+  $('wc').textContent = sm.waitCount || 0;
   $('up').innerHTML = (sm.line || []).slice(0, 5).map(n => `<span class="chip">${n}</span>`).join('') || '<span class="none">なし</span>';
   // 発行できないとき（停止中）は、QRを隠して案内を出す
   const closed = !!cfg.closed;
