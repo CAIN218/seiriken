@@ -92,3 +92,9 @@ body.st-call{--bg:#eeeaf8}
 @keyframes fadeout{to{opacity:0}}
 .tk.ripped .tear-h{opacity:0}
 .tk.ripped .tk-stub{border-color:transparent!important;transition:border-color .2s}
+
+/* 発行画面：やさしい色味を足す */
+body.st-none{--bg:#e8f2ee}
+body.st-none .card.c{background:#f4fafb;border-color:#c9e0e6}
+body.st-none .tk-main.full{background:linear-gradient(#e3f2ec 0,#e3f2ec 46px,#fff 46px);border:2px solid #b9d9cb}
+body.st-none .seg button.on{background:#3a7d6e;color:#fff;border-color:#3a7d6e}

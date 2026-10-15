@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=27"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=28"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -13,7 +13,7 @@
 <div id="app" hidden>
   <div id="offline" class="offline" hidden>オフラインです（通信が切れています）。操作が反映されない場合があります。</div>
   <div class="topbar"><div class="inner">
-    <div class="who-row"><span>スタッフ画面</span><button id="userBtn" class="usrbtn" aria-label="ログアウト">👤 <span id="userName"></span></button></div>
+    <div class="who-row"><span>スタッフ画面</span><button id="foldBtn" class="usrbtn" aria-label="上のバーを縮める">▲ 縮める</button><button id="userBtn" class="usrbtn" aria-label="ログアウト">👤 <span id="userName"></span></button></div>
     <div class="slots" id="slots"></div>
     <button id="callNext" class="call btn-main">次の組を呼ぶ</button>
     <div class="bar2">
@@ -24,7 +24,7 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v27</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v28</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -71,7 +71,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=27"></script><script src="common.js?v=27"></script>
+<script src="firebase-config.js?v=28"></script><script src="common.js?v=28"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -175,9 +175,17 @@ const act = {
   // 入室済みにしたのを取り消して、呼び出し中に戻す
   reopen: t => txRun(t.id, ['inroom', 'guided'], () => ({ status: 'called', enteredAt: del(), torn: del() }), `${t.number}番を呼び出し中に戻しました`),
   // 呼び出したまま、順番を後ろにする（飛ばし中）。来たら戻せる
-  skip: t => txRun(t.id, ['called'], () => ({ skipped: true, skippedAt: Date.now() }), `${t.number}番を飛ばし中にしました`),
+  // 順番待ちから飛ばすと、呼び出した状態で「飛ばし中」に入る
+  skip: t => txRun(t.id, ['waiting', 'called'], cur => cur.status === 'waiting' ? { status: 'called', calledAt: Date.now(), skipped: true, skippedAt: Date.now() } : { skipped: true, skippedAt: Date.now() }, `${t.number}番を飛ばし中にしました`).then(ok => { if (ok && t.status === 'waiting') pushNotify(t.id); return ok; }),
   unskip: t => txRun(t.id, ['called'], () => ({ skipped: del(), skippedAt: del() }), `${t.number}番を呼び出し中に戻しました`)
 };
+(function () {
+  const tb = document.querySelector('.topbar'), fb = $('foldBtn');
+  const set = f => { tb.classList.toggle('folded', f); fb.textContent = f ? '▼ 開く' : '▲ 縮める'; try { localStorage.setItem('topFold', f ? '1' : ''); } catch (e) {} };
+  let init = false; try { init = !!localStorage.getItem('topFold'); } catch (e) {}
+  set(init);
+  fb.onclick = () => set(!tb.classList.contains('folded'));
+})();
 function callNext() {
   const line = list.filter(inLine).sort(byOrder);
   if (!line.length) return;
@@ -214,7 +222,7 @@ function render() {
     let acts = '';
     if (isSkipped(t)) acts = `<button class="big btn-ok" data-a="enter" data-id="${t.id}">入室済みにする</button><button data-a="unskip" data-id="${t.id}">呼び出し中に戻す</button><button data-a="renotify" data-id="${t.id}">再通知</button>${hold}`;
     else if (t.status === 'called') acts = `<button class="big btn-ok" data-a="enter" data-id="${t.id}">入室済みにする</button><button data-a="renotify" data-id="${t.id}">再通知</button><button data-a="skip" data-id="${t.id}">飛ばす</button>${hold}`;
-    else acts = hold;
+    else acts = `<button data-a="skip" data-id="${t.id}">飛ばす</button>${hold}`;
     return `<div class="row ${isSkipped(t) ? 'skipped' : t.status}" data-since="${since || ''}" data-kind="${kind}" data-late="${t.status === 'called' && !t.skipped ? 1 : 0}">
       <div class="rtop"><button class="numbtn" data-a="check" data-id="${t.id}">${t.number}</button><div class="who">${label(t)}</div><span class="pill ${isSkipped(t) ? 'skipped' : t.status}">${pill}</span><span class="el"></span></div>
       <div class="racts">${acts}</div></div>`;
