@@ -7,6 +7,8 @@ button:disabled{opacity:.4}
 .offline{background:var(--bad);color:#fff;text-align:center;font-weight:900;padding:8px}
 .topbar{position:sticky;top:0;z-index:20;background:var(--bg);padding:8px 10px 8px;border-bottom:2px solid var(--line);box-shadow:0 2px 6px rgba(0,0,0,.08)}
 .inner{max-width:960px;margin:0 auto}
+.who-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:13px;font-weight:800;color:var(--sub)}
+.usrbtn{min-height:34px;font-size:14px;padding:0 12px;border-radius:99px}
 .slots{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:54px;align-items:center}
 .slotnone{color:var(--sub);font-weight:700;padding:0 4px}
 .slot{width:calc((100% - 24px)/5);height:54px;border-radius:12px;border:2px solid var(--line);background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.05}

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=12"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=13"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -13,10 +13,10 @@
 <div id="app" hidden>
   <div id="offline" class="offline" hidden>オフラインです（通信が切れています）。操作が反映されない場合があります。</div>
   <div class="topbar"><div class="inner">
+    <div class="who-row"><span>スタッフ画面</span><button id="userBtn" class="usrbtn" aria-label="ログアウト">👤 <span id="userName"></span></button></div>
     <div class="slots" id="slots"></div>
     <div class="bar">
       <button id="callNext" class="call btn-main">次の組を呼ぶ</button>
-      <button id="checkBtn" class="ico" aria-label="番号で確認">🔍</button>
       <button id="histBtn" class="ico" aria-label="受付した整理券の一覧">📋</button>
       <button id="gearBtn" class="ico" aria-label="管理メニュー">⚙</button>
     </div>
@@ -24,7 +24,7 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v12</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v13</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -39,7 +39,7 @@
 
 <div id="check" class="modal" hidden><div class="sheet">
   <h3>この整理券の状態</h3>
-  <div class="box"><input id="chkIn" type="tel" inputmode="numeric" placeholder="番号を入力（または一覧の番号をタップ）">
+  <div class="box"><input id="chkIn" type="hidden">
   <div id="chkRes"></div></div>
   <button id="chkClose" class="full" style="min-height:56px">閉じる</button>
 </div></div>
@@ -47,6 +47,7 @@
 <div id="menu" class="modal" hidden><div class="sheet">
   <h3>管理メニュー</h3>
   <div class="box" id="stopBox"></div>
+  <div class="box" id="waitBox"></div>
   <div class="box"><button id="csvBtn" class="full">今日の記録をCSVでダウンロード</button></div>
   <div class="box"><div style="font-weight:800">テスト用の整理券の削除</div>
     <div style="font-size:14px;color:#5a6378">お客さん画面のURLの末尾に <b>?test=1</b> を付けて発行した整理券だけを削除します。</div>
@@ -55,14 +56,13 @@
     <div style="font-size:14px;color:#5a6378">今日の整理券をすべて削除し、番号を1番に戻します。実行するには「リセット」と入力してください。</div>
     <input id="resetIn" type="text" placeholder="リセット" autocomplete="off">
     <button id="resetBtn" class="full btn-bad" disabled>すべてリセットする</button></div>
-  <div class="box"><button id="logoutBtn" class="full">ログアウト</button></div>
   <button id="menuClose" class="full" style="min-height:56px">閉じる</button>
 </div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=12"></script><script src="common.js?v=12"></script>
+<script src="firebase-config.js?v=13"></script><script src="common.js?v=13"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -261,7 +261,7 @@ function renderCheck() {
   else { cls = 'bad'; text = t.status === 'cancelled' ? '無効です（キャンセル）' : '無効です（欠席）'; }
   box.innerHTML = `<div class="check ${cls}"><div class="n">${t.number}</div><div class="s">${text}</div>${info}</div>${detailHtml(t)}${btn}`;
 }
-$('chkIn').oninput = renderCheck; $('checkBtn').onclick = () => openCheck(''); $('chkClose').onclick = () => { $('check').hidden = true; };
+$('chkIn').oninput = renderCheck; $('chkClose').onclick = () => { $('check').hidden = true; };
 
 /* ---------- 受付した整理券の一覧 ---------- */
 let hFilter = 'all';
@@ -298,6 +298,9 @@ $('gearBtn').onclick = () => {
     counter().set({ closed: true, closedReason: $('stopReason').value.trim(), reopenAt: $('reopenAt').value.trim() }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
   };
   if ($('reopenBtn')) $('reopenBtn').onclick = () => counter().set({ closed: false }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
+  const wOn = cfg.showWait !== false;
+  $('waitBox').innerHTML = `<div style="font-weight:800">お客さん画面の待ち時間表示：${wOn ? 'オン' : 'オフ'}</div><div style="font-size:14px;color:#5a6378">オフにすると、「約○分」「○時ごろ」の目安を出さず、「あと○組」だけを表示します。</div><button id="waitBtn" class="full ${wOn ? '' : 'btn-ok'}" style="min-height:52px">${wOn ? '待ち時間を非表示にする' : '待ち時間を表示する'}</button>`;
+  $('waitBtn').onclick = () => counter().set({ showWait: !wOn }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
   $('resetIn').value = ''; $('resetBtn').disabled = true;
   $('menu').hidden = false;
 };
@@ -330,13 +333,13 @@ $('csvBtn').onclick = () => {
   const text = '\ufeff' + rows.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(',')).join('\r\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = `seiriken-${today()}.csv`; a.click();
 };
-$('logoutBtn').onclick = () => auth.signOut().then(() => location.reload());
+$('userBtn').onclick = () => { if (confirm('ログアウトします。よろしいですか？')) auth.signOut().then(() => location.reload()); };
 
 /* ---------- ログイン ---------- */
 $('loginBtn').onclick = () => auth.signInWithEmailAndPassword($('email').value, $('pass').value).catch(() => alert('ログインできませんでした。メールアドレスとパスワードを確認してください。'));
 auth.onAuthStateChanged(u => {
   $('login').hidden = !!u; $('app').hidden = !u;
-  if (u) startWatch();
+  if (u) { $('userName').textContent = u.displayName || (u.email || '').split('@')[0] || 'スタッフ'; startWatch(); }
 });
 
 function startWatch() {
