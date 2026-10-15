@@ -108,3 +108,7 @@ h2{font-size:18px;color:var(--fg);border-left:6px solid var(--line);padding-left
 .sbtn.big{min-height:68px;font-size:22px}
 #rsTitle{font-size:20px;margin:0}
 .row{user-select:none;-webkit-user-select:none}
+
+.row .ask{display:none}.row.over .ask{display:inline;color:var(--bad);font-weight:800;font-size:14px}
+.hrow[data-num]{cursor:pointer}
+.rsub{flex-wrap:wrap}.row.over .ask{flex-basis:100%;white-space:nowrap}

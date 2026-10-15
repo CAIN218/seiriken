@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=31"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=32"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -19,7 +19,7 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v30</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v32</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -71,7 +71,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=31"></script><script src="common.js?v=31"></script>
+<script src="firebase-config.js?v=32"></script><script src="common.js?v=32"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -180,6 +180,9 @@ const act = {
   reopen: t => txRun(t.id, ['inroom', 'guided'], () => ({ status: 'called', enteredAt: del(), torn: del() }), `${t.number}番を呼び出し中に戻しました`),
   // 順番を指定して呼ぶ
   call: t => txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${t.number}番を呼び出しました`).then(ok => { if (ok) pushNotify(t.id); return ok; }),
+  // 欠席にした券を、呼び出し中に戻す（お客さんの画面は「待機室へお越しください」に戻る）
+  restore: t => txRun(t.id, ['absent'], () => ({ status: 'called', calledAt: Date.now(), absentAt: del(), absentBy: del(), absentFrom: del() }), `${t.number}番を呼び出し中に戻しました`).then(ok => { if (ok) pushNotify(t.id); return ok; }),
+  // 順番待ちの組を、順番待ちのまま後ろへ回す（旧：来ない組も戻せた）
   // 来ない組：順番待ちに戻して、少し後ろに回す
   back: t => txRun(t.id, ['called', 'waiting'], () => {
     const k = backKey(t.id), patch = { status: 'waiting', calledAt: del(), reNotifiedAt: del(), soonPushedAt: del(), skipped: del(), skippedAt: del() };
@@ -217,7 +220,7 @@ function render() {
     const pill = called ? '呼び出し中' : (i === 0 ? '次の順番' : '順番待ち');
     const right = called ? `<button class="mini" data-a="renotify" data-id="${t.id}">再通知</button>` : `<span class="dh" data-drag="${t.id}" aria-label="長押ししてドラッグで並べ替え">≡</span>`;
     return `<div class="row ${t.status}" data-id="${t.id}" data-since="${(called ? t.calledAt : t.createdAt) || ''}" data-kind="${called ? 'call' : 'wait'}" data-late="${called ? 1 : 0}">
-      <div class="rtop"><div class="num">${t.number}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span><span class="el"></span></div></div>${right}</div></div>`;
+      <div class="rtop"><div class="num">${t.number}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span><span class="el"></span>${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
   };
   const doneHtml = t => `<div class="row inroom" data-id="${t.id}"><div class="rtop"><div class="num">${t.number}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill inroom">${t.torn ? '入室済み（もぎり）' : '入室済み'}</span><span class="el" style="font-size:14px">${fmtT(t.enteredAt)}</span></div></div></div></div>`;
   $('lists').innerHTML = `<div class="grid">
@@ -238,6 +241,7 @@ function tickEl() {
     const sec = Math.max(0, Math.round((Date.now() - s) / 1000));
     el.innerHTML = `<span class="lb">${r.dataset.kind === 'call' ? '呼出' : '待ち'}</span> ${mmss(sec)}`;
     r.classList.toggle('late', r.dataset.late === '1' && sec >= ALERT_MIN * 60);
+    r.classList.toggle('over', r.dataset.late === '1' && sec >= 15 * 60);
   });
 }
 setInterval(tickEl, 1000);
@@ -293,7 +297,7 @@ function renderCheck() {
   if (isDone(t)) { cls = 'ok'; text = '入室済み ✔'; }
   else if (t.status === 'called') { cls = 'warn'; text = '呼び出し中（まだ入室していません）'; btn = `<button class="full btn-ok" style="min-height:60px;font-size:20px" data-a="enter" data-id="${t.id}">入室済みにする</button>`; }
   else if (t.status === 'waiting') { cls = 'none'; text = 'まだ呼び出していません（順番待ち）'; }
-  else { cls = 'bad'; text = t.status === 'cancelled' ? '無効です（キャンセル）' : '無効です（欠席）'; }
+  else { cls = 'bad'; text = t.status === 'cancelled' ? '無効です（キャンセル）' : '無効です（欠席）'; if (t.status === 'absent') btn = `<button class="full btn-ok" style="min-height:60px;font-size:20px" data-a="restore" data-id="${t.id}">呼び出し中に戻す</button>`; }
   box.innerHTML = `<div class="check ${cls}"><div class="n">${t.number}</div><div class="s">${text}</div>${info}</div>${detailHtml(t)}${btn}`;
 }
 $('chkIn').oninput = renderCheck; $('chkClose').onclick = () => { $('check').hidden = true; };
@@ -309,7 +313,7 @@ function renderHist() {
   if (hFilter === 'done') ls = ls.filter(isDone);
   if (hFilter === 'bad') ls = ls.filter(isInvalid);
   if (q) ls = ls.filter(t => String(t.number) === q.replace(/[^0-9]/g, '') || (t.name || '').includes(q));
-  $('hlist').innerHTML = ls.length ? ls.map(t => `<div class="hrow ${t.status}">
+  $('hlist').innerHTML = ls.length ? ls.map(t => `<div class="hrow ${t.status}" data-num="${t.number}">
       <div class="hn">${t.number}</div>
       <div class="hm"><div class="who">${label(t)} <span class="pill ${isDone(t) ? 'inroom' : t.status}">${stateName(t)}</span></div><div class="ho">${outline(t)}</div></div>
       <button class="ico2" data-a="check" data-id="${t.id}" aria-label="詳しく見る">🔍</button></div>`).join('')
@@ -318,6 +322,7 @@ function renderHist() {
 $('histBtn').onclick = () => { $('hist').hidden = false; renderHist(); };
 $('hClose').onclick = $('hClose2').onclick = () => { $('hist').hidden = true; };
 $('hq').oninput = renderHist;
+$('hlist').addEventListener('click', e => { const r = e.target.closest('.hrow[data-num]'); if (r && !e.target.closest('button')) openCheck(+r.dataset.num); });
 $('hchips').onclick = e => { const b = e.target.closest('[data-f]'); if (b) { hFilter = b.dataset.f; renderHist(); } };
 
 /* ---------- 行をタップして開く操作シート ---------- */
@@ -331,7 +336,7 @@ function renderSheet() {
   const hold = `<button class="sbtn" data-hold="absent" data-id="${t.id}" style="user-select:none;-webkit-user-select:none;-webkit-touch-callout:none">欠席にする（長押し）</button>`;
   const b = (a, text, cls, dis) => `<button class="sbtn ${cls || ''}" data-a="${a}" data-id="${t.id}" ${dis ? 'disabled' : ''}>${text}</button>`;
   let btns = '';
-  if (t.status === 'called') btns = b('renotify', '再通知') + b('back', '後ろへ回す') + b('enter', '入室済みにする', 'btn-ok big') + hold;
+  if (t.status === 'called') btns = b('renotify', '再通知') + b('enter', '入室済みにする', 'btn-ok big') + hold;
   else if (t.status === 'waiting') btns = b('call', '今すぐ呼ぶ', 'btn-ok big') + b('first', '先頭にする', '', first && first.id === t.id) + b('back', '後ろへ回す') + hold;
   else if (isDone(t)) btns = b('reopen', '呼び出し中に戻す');
   else btns = `<div class="box" style="color:#5a6378">${stateName(t)}です。操作はありません。</div>`;
