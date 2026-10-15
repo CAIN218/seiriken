@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="stylesheet" href="customer.css?v=16"></head>
+<title>整理券</title><link rel="stylesheet" href="customer.css?v=17"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=16"></script><script src="common.js?v=16"></script>
+<script src="firebase-config.js?v=17"></script><script src="common.js?v=17"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -106,7 +106,7 @@ const cancelBtn = () => '<div class="c"><button class="linkbtn" id="cancel">整�
 const stubHtml = (enabled) => `<div class="${enabled ? '' : 'off'}"><div class="tear" id="${enabled ? 'tear' : 'tearOff'}"><div class="tear-txt">${enabled ? '右になぞって、もぎる' : '呼ばれるまで、もぎれません'}</div><div class="tear-h" ${enabled ? 'id="tearH"' : ''}>✂</div></div></div>`;
 
 const usrTag = () => me && me.name ? `<div class="usr">${esc(me.name)}さん</div>` : '';
-const tkHead = `<div class="tk-title">${esc(EVENT_TITLE)}</div><div class="tk-lab">整理券</div>`;
+const tkHead = `<div class="tk-title">${esc(EVENT_TITLE)}</div><div class="tk-lab">整理券</div><div class="tk-note">待機室までの整理券です</div>`;
 
 function viewIssue() {
   const wc = sum.waitCount || 0, mins = Math.round(wc * gapSec() / 60);
@@ -135,9 +135,9 @@ function viewTicket() {
   if (me.status === 'called') {
     return shell('call', `<div class="h1 c">順番が来ました</div>
       <div class="tk call">${body()}${perf}<div class="tk-stub">${stubHtml(true)}</div></div>
-      <div class="h1 c" style="font-size:clamp(24px,7vw,32px)">入口前の待合スペースへ<br>お越しください</div>
+      <div class="h1 c" style="font-size:clamp(24px,7vw,32px)">受付までお越しください</div>
       ${me.skipped ? '<div class="small c">順番を少し後ろにしています。着いたら、もぎってスタッフにお見せください。</div>' : ''}`,
-      `<div class="small c">待合スペースに着いたら、半券を右になぞってもぎり、スタッフにこの画面をお見せください。画面をタップすると音が止まります。</div>`);
+      `<div class="small c">受付に着いたら、半券を右になぞってもぎり、スタッフにこの画面をお見せください。画面をタップすると音が止まります。</div>`);
   }
   if (me.status === 'inroom' || me.status === 'guided') {
     return shell('in', `<div class="tk in"><div class="tk-main cut"><div class="stamp">入室済み</div>${tkHead}<div class="tk-num">${me.number}</div><div class="tk-who">${ppl}</div>
@@ -149,11 +149,11 @@ function viewTicket() {
   if (me.status === 'absent') return shell('end', `<div class="tk"><div class="tk-main full">${tkHead}<div class="tk-num">${me.number}</div><div class="h1 c">この整理券は<br>無効になりました</div><p class="p c">ご利用の場合は、スタッフにお声がけください。</p></div></div>`, '<button class="btn sub" id="again">新しい整理券を発行する</button>');
 
   // 順番待ち（発行したときから、チケットの形で表示する）
-  const soon = ahead <= WAITING_ROOM;
+  const soon = ahead <= SOON_AHEAD;
   const eta = etaText(ahead);
   const aheadTxt = ahead === 0 ? '次です' : `あと${ahead}<span class="h1">組</span>`;
-  const info = `<div class="tk-eta"><div class="huge" style="font-size:clamp(44px,14vw,64px)">${aheadTxt}</div><div class="p">${soon ? 'まもなくお呼びします' : showWait() ? `目安：${eta}ごろ` : 'この画面でお待ちください'}</div></div>`;
-  const top = (soon ? '<div class="h1 c" style="font-size:clamp(26px,8vw,34px)">会場へお越しください</div>' : '')
+  const info = `<div class="tk-eta"><div class="huge" style="font-size:clamp(44px,14vw,64px)">${aheadTxt}</div><div class="p">${soon ? '会場の近くでお待ちください' : showWait() ? `目安：${eta}ごろ` : 'この画面でお待ちください'}</div></div>`;
+  const top = (soon ? '<div class="h1 c" style="font-size:clamp(26px,8vw,34px)">まもなく順番です</div>' : '')
     + `<div class="tk wait">${body(info)}${perf}<div class="tk-stub">${stubHtml(false)}</div></div>`
     + (soon ? '' : `<div class="card p">${showWait() ? eta + 'ごろに、会場へお戻りください。' : ''}この画面を開いたままにしておくと、音でもお知らせします。</div>`);
   return shell(soon ? 'soon' : 'wait', top, notifyBtn() + cancelBtn());
@@ -164,12 +164,12 @@ function render() {
   if (!me) { app.innerHTML = viewIssue(); wire(); stopRing(); return; }
   // 状態の変化に合わせて音・振動・通知
   const li = line(), idx = li.indexOf(me.number), ahead = idx >= 0 ? idx : li.filter(n => n < me.number).length;
-  const key = me.status === 'waiting' ? (ahead <= WAITING_ROOM ? 'soon' : 'wait') : me.status;
+  const key = me.status === 'waiting' ? (ahead <= SOON_AHEAD ? 'soon' : 'wait') : me.status;
   const changed = st.key !== undefined && st.key !== key;
-  if (changed && key === 'soon') { beep(2); vibrate([300, 150, 300]); note('整理券 ' + me.number, 'まもなくご案内です。会場へお越しください'); }
-  if (key === 'called' && (st.key !== 'called')) { startRing(); note('整理券 ' + me.number, '順番が来ました。入口前の待合スペースへお越しください'); }
+  if (changed && key === 'soon') { beep(2); vibrate([300, 150, 300]); note('整理券 ' + me.number, 'まもなくお呼びします。会場の近くでお待ちください'); }
+  if (key === 'called' && (st.key !== 'called')) { startRing(); note('整理券 ' + me.number, '順番が来ました。受付までお越しください'); }
   if (key !== 'called') stopRing();
-  if (me.status === 'called' && me.reNotifiedAt != null && st.re != null && st.re !== me.reNotifiedAt) { startRing(); note('整理券 ' + me.number, 'お待ちしています。入口前の待合スペースへお越しください'); }
+  if (me.status === 'called' && me.reNotifiedAt != null && st.re != null && st.re !== me.reNotifiedAt) { startRing(); note('整理券 ' + me.number, 'お待ちしています。受付までお越しください'); }
   st.re = me.reNotifiedAt != null ? me.reNotifiedAt : null; st.key = key;
   app.innerHTML = viewTicket();
   document.title = key === 'called' ? '【順番が来ました】整理券' : '整理券';

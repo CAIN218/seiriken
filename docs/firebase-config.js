@@ -5,8 +5,8 @@ window.FIREBASE_CONFIG = {
   projectId: "seiriken-fcb62",
   appId: "1:130815459081:web:014c9f08c7f28166629dd8"
 };
-// 案内待ちの何組前から「お越しください」を出すか（待機室の席数）
-window.WAITING_ROOM = 5;
+// 何組前から「まもなくお呼びします」の表示と通知を出すか
+window.SOON_AHEAD = 2;
 window.CALL_TIMEOUT_SEC = 300;
 // 平均案内間隔がまだ分からないときの仮の値（秒）
 window.DEFAULT_GAP_SEC = 180;

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=16"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=17"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -24,7 +24,7 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v16</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v17</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -70,7 +70,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=16"></script><script src="common.js?v=16"></script>
+<script src="firebase-config.js?v=17"></script><script src="common.js?v=17"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -163,7 +163,7 @@ const act = {
 };
 function callNext() {
   const line = list.filter(inLine).sort(byOrder);
-  if (!line.length || list.filter(inRoom).length >= WAITING_ROOM) return;
+  if (!line.length) return;
   const t = line[0];
   txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${t.number}番を呼び出しました`);
 }
@@ -179,9 +179,8 @@ function render() {
   $('slots').innerHTML = room.length || skipped.length
     ? room.map(t => `<div class="slot called">${t.number}<small>呼び出し中</small></div>`).join('') + skipped.map(t => `<div class="slot skipped">${t.number}<small>飛ばし中</small></div>`).join('')
     : '';
-  const full = room.length >= WAITING_ROOM;
-  $('callNext').disabled = full || !line.length;
-  $('callNext').textContent = full ? `呼び出し中が上限（${WAITING_ROOM}組）です` : (line.length ? `次の組を呼ぶ（${line[0].number}番）` : '呼び出せる組はありません');
+  $('callNext').disabled = !line.length;
+  $('callNext').textContent = line.length ? `次の組を呼ぶ（${line[0].number}番）` : '呼び出せる組はありません';
   const sm = buildSummary(list);
   const nCalled = list.filter(t => t.status === 'called').length, nBad = list.filter(isInvalid).length;
   $('stats').innerHTML = `<div><b>${list.length}</b>発行</div><div><b>${line.length}</b>待ち</div><div><b>${nCalled}</b>呼出中</div><div><b>${done.length}</b>入室済み</div><button id="statBad" class="statbtn"><b>${nBad}</b>無効</button>`;

@@ -73,3 +73,4 @@ body.st-call{--bg:#eeeaf8}
 .tk.call .tk-stub{border:2px solid #cfc6ec;border-top:0}
 .tk.call .tk-title{color:#5b4fa0}
 .tk.call .tk-perf::before{border-top-color:#b8acdf}
+.tk-note{font-size:14px;font-weight:700;color:var(--sub);margin-top:2px}
