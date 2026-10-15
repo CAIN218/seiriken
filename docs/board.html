@@ -1,19 +1,37 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>案内状況</title><link rel="stylesheet" href="style.css?v=32">
-<style>main{max-width:1100px;text-align:center}.huge{font-size:clamp(4rem,18vw,14rem);font-weight:800;line-height:1}.chip{font-size:clamp(1.6rem,6vw,4rem);padding:8px 24px}.lab{font-size:clamp(1rem,3vw,2rem);font-weight:700;color:var(--sub)}</style></head>
+<title>案内状況</title>
+<style>
+body{margin:0;background:#eef3f7;color:#26303f;font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;min-height:100vh;display:flex;flex-direction:column}
+main{flex:1;display:flex;flex-direction:column;gap:2.2vh;padding:3vh 4vw;max-width:1400px;width:100%;margin:0 auto;box-sizing:border-box}
+h1{margin:0;text-align:center;font-size:clamp(1.4rem,3.4vw,2.6rem);letter-spacing:.06em;color:#2f5d50}
+.card{background:#fff;border-radius:28px;padding:3vh 3vw;text-align:center;box-shadow:0 4px 18px rgba(60,50,30,.1)}
+.card.call{background:#f1eefb;border:3px solid #cfc6ec}
+.lab{font-size:clamp(1.2rem,3vw,2.4rem);font-weight:800;color:#5a6378}
+.card.call .lab{color:#5b4fa0}
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:1.4vw;margin-top:1.6vh}
+.big{font-size:clamp(5rem,17vw,13rem);font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums;padding:0 2vw}
+.chip{font-size:clamp(2rem,min(6.5vw,9vh),5rem);font-weight:900;font-variant-numeric:tabular-nums;background:#eef0f3;border-radius:20px;padding:.1em .45em}
+.card.call .chip{background:#fff;border:3px solid #cfc6ec;font-size:clamp(4rem,min(15vw,21vh),12rem);line-height:1.1}
+.none{font-size:clamp(1.4rem,3.5vw,2.8rem);color:#8a93a6;font-weight:700;margin-top:1.6vh}
+.foot{text-align:center;font-size:clamp(1rem,2vw,1.6rem);color:#5a6378;font-weight:700}
+</style></head>
 <body><main>
-<div class="card"><div class="lab">現在の呼び出し番号</div><div class="huge" id="cur">—</div></div>
-<div class="card"><div class="lab">次に呼び出す番号</div><div class="chips" id="up"></div><div class="lab" style="margin-top:12px">待ち <span id="wait">0</span> 組</div></div>
+<h1 id="ttl"></h1>
+<div class="card call"><div class="lab">待機室へお越しください</div><div class="chips" id="called"></div></div>
+<div class="card"><div class="lab">次の順番</div><div class="chips" id="up"></div></div>
+<div class="foot">順番待ち <b id="wait">0</b> 組</div>
 </main>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=32"></script><script src="common.js?v=32"></script>
 <script>
+document.getElementById('ttl').textContent = EVENT_TITLE;
+const chips = (ns, none) => ns.length ? ns.map(n => `<span class="chip">${n}</span>`).join('') : `<div class="none">${none}</div>`;
 summaryRef().onSnapshot(d => {
   const sm = d.exists ? d.data() : {};
-  document.getElementById('cur').textContent = sm.current ?? '—';
-  document.getElementById('up').innerHTML = (sm.line || []).slice(0, 8).map(n => `<span class="chip">${n}</span>`).join('') || '<span class="lab">なし</span>';
+  document.getElementById('called').innerHTML = chips((sm.called || []).slice(0, 6), '呼び出し中の組はありません');
+  document.getElementById('up').innerHTML = chips((sm.line || []).slice(0, 5), 'なし');
   document.getElementById('wait').textContent = sm.waitCount || 0;
 });
 </script></body></html>
