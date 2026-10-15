@@ -79,3 +79,4 @@ body.st-call{--bg:#eeeaf8}
 .ocs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px}
 .oc{min-width:44px;padding:4px 8px;border-radius:10px;background:#eef0f3;font-weight:900;font-size:20px;font-variant-numeric:tabular-nums}
 .oc.me{background:var(--accent);color:#fff}.oc.dots{background:none;min-width:0;padding:4px 0}
+.oc{display:flex;flex-direction:column;align-items:center;line-height:1.15}.oc small{font-size:11px;font-weight:700;color:var(--sub)}.oc.me small{color:#e4f1ed}.oc{font-size:18px}
