@@ -74,3 +74,8 @@ body.st-call{--bg:#eeeaf8}
 .tk.call .tk-title{color:#5b4fa0}
 .tk.call .tk-perf::before{border-top-color:#b8acdf}
 .tk-note{font-size:14px;font-weight:700;color:var(--sub);margin-top:2px}
+
+.tk-order{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
+.ocs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px}
+.oc{min-width:44px;padding:4px 8px;border-radius:10px;background:#eef0f3;font-weight:900;font-size:20px;font-variant-numeric:tabular-nums}
+.oc.me{background:var(--accent);color:#fff}.oc.dots{background:none;min-width:0;padding:4px 0}
