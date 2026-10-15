@@ -90,3 +90,17 @@ table.det th{width:42%;color:var(--sub);font-size:15px;font-weight:700}
 #foldBtn{margin-left:auto;margin-right:8px}
 .topbar.folded .slots,.topbar.folded .bar2,.topbar.folded .stats,.topbar.folded .avg,.topbar.folded #stopNote{display:none}
 .topbar.folded #callNext{min-height:52px;font-size:18px;margin-top:2px}
+
+/* 状態を見やすく：左の太い帯と大きな状態ラベル */
+.row{border-left-width:10px}
+.row.waiting{border-color:#8aa7c4;background:#f3f7fb}
+.row.called{border-color:#e0a21a;background:#fff8e1}
+.row.skipped{border-color:#8f6fe0;background:#f5f0ff}
+.row.late{background:var(--badbg);border-color:var(--bad)}
+.pill{font-size:15px;padding:5px 12px}
+.pill.waiting{background:#dbe6f2;color:#2c4a68}
+.pill.called{background:#ffe08a;color:#6b4300}
+.pill.skipped{background:#d9ccff;color:#47299a}
+h2{font-size:18px;color:var(--fg);border-left:6px solid var(--line);padding-left:8px}
+.omv{display:flex;gap:6px}.omv button{min-width:52px;min-height:52px;font-size:20px;font-weight:800}
+.bar2 .big2{white-space:nowrap;font-size:16px;padding:0 4px}

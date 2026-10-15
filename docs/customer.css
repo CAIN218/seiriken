@@ -37,8 +37,10 @@ body.st-call{--bg:#eeeaf8}
 .off .tear-h{background:#b9bcc0;cursor:not-allowed}
 /* チケット */
 @property --p{syntax:'<number>';inherits:true;initial-value:0}
-.tk{--p:0;position:relative;color:var(--fg);filter:drop-shadow(0 4px 10px rgba(60,50,30,.16))}
-.tk.snap{transition:--p .22s}
+.tk{--p:0;position:relative;color:var(--fg)}
+.tk-main,.tk-stub{filter:drop-shadow(0 4px 10px rgba(60,50,30,.16))}
+.tk.snap{transition:--p .3s cubic-bezier(.3,1.4,.5,1)}
+.tk.fin{transition:--p .12s linear}
 .tk-main{position:relative;background:#fff;border-radius:18px 18px 0 0;padding:14px 16px 12px;text-align:center}
 .tk.in .tk-main,.tk-main.full{border-radius:18px}
 .tk-eta{margin-top:4px;border-top:1px dashed var(--line);padding-top:6px}
@@ -52,15 +54,12 @@ body.st-call{--bg:#eeeaf8}
 .tk-perf::before{content:"";position:absolute;left:16px;right:16px;top:-1.5px;border-top:3px dashed #adb5bd}
 .tk-perf .n{position:absolute;top:-13px;width:26px;height:26px;border-radius:50%;background:var(--pg)}
 .tk-perf .n.l{left:-13px}.tk-perf .n.r{right:-13px}
-.tk-cut{position:absolute;left:16px;top:-3px;height:6px;width:calc((100% - 32px)*var(--p));background:var(--pg)}
-.tk.ripped .tk-main{animation:jolt .25s ease-out}
-@keyframes jolt{30%{transform:translateY(-5px) rotate(.6deg)}to{transform:none}}
 /* 入室済みのチケット（切り口がギザギザ） */
 .tk-main.cut{border-radius:18px}
 .tk-times{display:flex;justify-content:center;gap:24px;margin-top:8px}
 .tk-times span{display:block;font-size:14px;color:var(--sub);font-weight:700}
 .tk-times b{font-size:26px;font-variant-numeric:tabular-nums}
-.stamp{display:inline-block;border:4px solid var(--ok);color:var(--ok);font-weight:900;font-size:26px;padding:2px 14px;border-radius:12px;transform:rotate(-5deg);margin-bottom:6px}
+.stamp{position:absolute;right:12px;bottom:8px;border:4px solid var(--ok);color:var(--ok);font-weight:900;font-size:22px;padding:1px 12px;border-radius:12px;transform:rotate(-6deg);background:rgba(255,255,255,.55);z-index:3}
 .scr{overflow:hidden}
 [hidden]{display:none!important}
 
@@ -85,16 +84,51 @@ body.st-call{--bg:#eeeaf8}
 .strack{position:relative;height:60px;border-radius:14px;background:#e4f1ed;display:flex;align-items:center;justify-content:center;padding-left:56px}
 .stx{color:var(--ok);font-weight:900;font-size:clamp(19px,5.6vw,22px)}
 .off .strack{background:#e6e6e3}.off .stx{color:#8a8f96}.strack .tear-h{left:4px;top:2px}
-.sl.base{clip-path:polygon(calc(var(--p)*100%) 0%,calc(var(--p)*100% + var(--tooth)) 10%,calc(var(--p)*100%) 20%,calc(var(--p)*100% + var(--tooth)) 30%,calc(var(--p)*100%) 40%,calc(var(--p)*100% + var(--tooth)) 50%,calc(var(--p)*100%) 60%,calc(var(--p)*100% + var(--tooth)) 70%,calc(var(--p)*100%) 80%,calc(var(--p)*100% + var(--tooth)) 90%,calc(var(--p)*100%) 100%,100% 100%,100% 0)}
 .tk-stub .tear{position:absolute;left:14px;right:14px;bottom:14px;height:60px;background:none;overflow:visible;border-radius:0}
 .tk-stub .tear .tear-h{top:2px}
-.tk.ripped .sl.base{animation:fadeout .4s ease-out forwards}
-@keyframes fadeout{to{opacity:0}}
-.tk.ripped .tear-h{opacity:0}
-.tk.ripped .tk-stub{border-color:transparent!important;transition:border-color .2s}
 
 /* 発行画面：やさしい色味を足す */
 body.st-none{--bg:#e8f2ee}
 body.st-none .card.c{background:#f4fafb;border-color:#c9e0e6}
 body.st-none .tk-main.full{background:linear-gradient(#e3f2ec 0,#e3f2ec 46px,#fff 46px);border:2px solid #b9d9cb}
 body.st-none .seg button.on{background:#3a7d6e;color:#fff;border-color:#3a7d6e}
+
+/* 半券をもぎる：なぞった分だけ破れて、半券が左から垂れ下がる */
+.tk-stub{transform-origin:100% 0;transform:translateY(calc(var(--p)*6px)) rotate(calc(var(--p)*5deg));will-change:transform}
+.tk-stub .tear,.tear-h{touch-action:none}
+.stx{opacity:calc(1 - var(--p)*1.8)}
+/* ギザギザの破れ目（点線の上に重ね、--p の分だけ左から見せる） */
+.zig,.tk-perf::after{position:absolute;left:16px;right:16px;pointer-events:none;clip-path:inset(0 calc((1 - var(--p))*100%) 0 0)}
+.zig{top:-7px;height:14px;background:var(--pg);z-index:3;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpolygon points='0,3 7,0 14,3 14,11 7,14 0,11' fill='%23000'/%3E%3C/svg%3E") repeat-x 0 0/14px 14px;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpolygon points='0,3 7,0 14,3 14,11 7,14 0,11' fill='%23000'/%3E%3C/svg%3E") repeat-x 0 0/14px 14px}
+.tk-perf::after{content:"";top:7px;height:10px;background:linear-gradient(rgba(60,50,30,.2),rgba(60,50,30,0));z-index:2}
+.tk.in{--p:1}.tk.in .tk-perf::before,.tk.in .tk-perf .n,.tk.in .tk-perf::after{display:none}
+.tk-main.cut{border-radius:18px}
+.tk.in{margin-bottom:0}
+/* もぎったあと */
+.tk.ripped .tk-main{border-radius:18px;animation:jolt .25s ease-out}
+@keyframes jolt{from{transform:translateY(-4px) scale(.99)}to{transform:none}}
+.tk.ripped .tear-h{opacity:0}
+.tk.ripped .tk-stub{animation:fall .65s linear forwards;pointer-events:none}
+@keyframes fall{
+  0%{transform:translateY(6px) rotate(5deg);animation-timing-function:ease-out}
+  15%{transform:translateY(-2px) rotate(5deg);animation-timing-function:cubic-bezier(.5,0,.9,.4)}
+  100%{transform:translate(var(--fx,0),110vh) rotate(var(--fr,18deg))}}
+.stamp.pop{animation:stampin .18s ease-in both}
+@keyframes stampin{from{transform:scale(1.8) rotate(-6deg);opacity:0}to{transform:scale(1) rotate(-6deg);opacity:1}}
+.tk.shake{animation:shake .08s linear}
+@keyframes shake{25%{transform:translate(1.5px,1px)}75%{transform:translate(-1px,-1px)}}
+.tk.back .tk-stub{animation:fadein .3s ease-out}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){
+  .tk-stub{transform:none}
+  .tk.ripped .tk-main,.tk.shake{animation:none}
+  .tk.ripped .tk-stub{animation:fadeout .3s ease-out forwards}
+  .stamp.pop{animation:fadein .2s ease-out both}
+}
+@keyframes fadeout{to{opacity:0}}
+
+.tk-main{border:2px solid transparent;border-bottom:0;transition:border-color .3s}
+.tk-title{transition:color .3s}
+.tk.in .tk-main{border-color:#b9d9cb}
+.tk.in .tk-title{color:#2f5d50}
+.tk-times{margin-top:14px}

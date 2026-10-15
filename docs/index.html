@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="customer.css?v=28"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="customer.css?v=29"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=28"></script><script src="push-store.js?v=28"></script><script src="common.js?v=28"></script>
+<script src="firebase-config.js?v=29"></script><script src="push-store.js?v=29"></script><script src="common.js?v=29"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -184,17 +184,18 @@ function viewTicket() {
   const ahead = idx >= 0 ? idx : li.filter(n => n < me.number).length;
   const ppl = `${me.people}名`;
   const body = extra => `<div class="tk-main">${tkHead}<div class="tk-num">${me.number}</div><div class="tk-who">${ppl}</div>${extra || ''}</div>`;
-  const perf = '<div class="tk-perf"><i class="n l"></i><i class="n r"></i><div class="tk-cut"></div></div>';
+  const perf = '<div class="tk-perf"><i class="n l"></i><i class="n r"></i><div class="zig"></div></div>';
 
   if (me.status === 'called') {
-    return shell('call', `<div class="h1 c" style="font-size:clamp(24px,7.4vw,34px)">受付までお越しください</div>
+    return shell('call', `<div class="h1 c" id="hd" style="font-size:clamp(24px,7.4vw,34px)">受付までお越しください</div>
       <div class="tk call">${body()}${perf}<div class="tk-stub">${stubHtml(true)}</div></div>
-      ${me.skipped ? '<div class="small c">順番を少し後ろにしています。着いたら、受付でめくってスタッフにお見せください。</div>' : ''}`,
+      ${me.skipped ? '<div class="small c">順番を少し後ろにしています。着いたら、受付でめくってスタッフにお見せください。</div>' : ''}${tearErr ? '<div class="err c" id="tearErr">通信できませんでした。もう一度なぞってください</div>' : ''}`,
       `<div class="small c">受付で、半券を右になぞってめくり、スタッフにこの画面をお見せください。画面をタップすると音が止まります。</div>`);
   }
   if (me.status === 'inroom' || me.status === 'guided') {
-    return shell('in', `<div class="tk in"><div class="tk-main cut"><div class="stamp">入室済み</div>${tkHead}<div class="tk-num">${me.number}</div><div class="tk-who">${ppl}</div>
-        <div class="tk-times"><div><span>入室</span><b>${me.enteredAt ? fmtHMS(me.enteredAt) : ''}</b></div><div><span>現在</span><b id="clk"></b></div></div></div></div>
+    return shell('in', `<div class="h1 c" style="font-size:clamp(24px,7.4vw,34px)">入室しました</div>
+      <div class="tk in"><div class="tk-main cut"><div class="stamp">入室済み</div>${tkHead}<div class="tk-num">${me.number}</div><div class="tk-who">${ppl}</div></div><div class="tk-perf"><div class="zig"></div></div></div>
+      <div class="tk-times c"><div><span>入室</span><b>${me.enteredAt ? fmtHMS(me.enteredAt) : ''}</b></div><div><span>現在</span><b id="clk"></b></div></div>
       <div class="small c">このあとは、スタッフの案内に従ってください。</div>`,
       '<button class="btn sub" id="again">新しい整理券を発行する</button>');
   }
@@ -262,29 +263,94 @@ function wire() {
 }
 
 /* ---------- 半券をめくる ---------- */
+let tearErr = false;
+const ANDROID = /Android/i.test(navigator.userAgent);
+const reduceMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
 function setupTear() {
   const tr = document.getElementById('tear'), h = document.getElementById('tearH');
   if (!tr || !h) return;
-  const tk = tr.closest('.tk') || tr;
-  let sx = 0, drag = false, max = 1, x = 0;
-  h.onpointerdown = e => { drag = true; dragging = true; sx = e.clientX; x = 0; tk.classList.remove('snap'); max = Math.max(1, tr.clientWidth - h.offsetWidth - 8); h.setPointerCapture(e.pointerId); };
-  h.onpointermove = e => { if (!drag) return; x = Math.max(0, Math.min(max, e.clientX - sx)); h.style.transform = `translateX(${x}px)`; tk.style.setProperty('--p', x / max); if (x / max > 0.05) vibrate(8); };
+  const tk = tr.closest('.tk');
+  let sx = 0, drag = false, max = 1, x = 0, raf = 0, lastStep = 0, busy = false;
+  const paint = () => { raf = 0; h.style.transform = `translateX(${x}px)`; tk.style.setProperty('--p', x / max); };
+  h.onpointerdown = e => {
+    if (busy) return;
+    drag = true; dragging = true; sx = e.clientX; x = 0; lastStep = 0; h.style.opacity = '';
+    tk.classList.remove('snap');
+    max = Math.max(1, tr.clientWidth - h.offsetWidth - 8);
+    h.setPointerCapture(e.pointerId);
+  };
+  h.onpointermove = e => {
+    if (!drag) return;
+    x = Math.max(0, Math.min(max, e.clientX - sx));
+    if (!raf) raf = requestAnimationFrame(paint);
+    const step = Math.floor(x / max * 10);
+    if (step > lastStep && ANDROID) vibrate(6); // 10%進むごとに「プチ」
+    lastStep = Math.max(lastStep, step);
+    if (x >= max) finish();
+  };
+  const finish = () => {
+    if (!drag) return; drag = false; busy = true;
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    tear(tr, tk, h).then(ok => { busy = false; if (!ok) { x = 0; h.style.transform = ''; } });
+  };
   const end = () => {
-    if (!drag) return; drag = false;
-    if (x >= max * 0.85) { tear(tr, tk); return; }
-    tk.classList.add('snap'); h.style.transition = 'transform .2s'; h.style.transform = 'translateX(0)'; tk.style.setProperty('--p', 0);
-    setTimeout(() => { h.style.transition = ''; tk.classList.remove('snap'); dragging = false; if (pending) { pending = false; render(); } }, 240);
+    if (!drag) return;
+    if (x >= max * 0.85) { finish(); return; }
+    drag = false;
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    // ばねのように元の位置へ
+    tk.classList.add('snap'); h.style.transition = 'transform .3s cubic-bezier(.3,1.4,.5,1)';
+    h.style.transform = 'translateX(0)'; tk.style.setProperty('--p', 0);
+    setTimeout(() => { h.style.transition = ''; tk.classList.remove('snap'); dragging = false; if (pending) { pending = false; render(); } }, 320);
   };
   h.onpointerup = end; h.onpointercancel = end;
 }
-function tear(tr, tk) {
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+// もぎる。最後まで破り切る → 半券が落ちる → はんこ → 入室済み画面へ（見た目をそろえてあるので、つなぎ目は出ない）
+async function tear(tr, tk, h) {
+  const stub = tk.querySelector('.tk-stub'), main = tk.querySelector('.tk-main'), hd = document.getElementById('hd');
+  const stampEl = document.createElement('div'); stampEl.className = 'stamp pop'; stampEl.textContent = '入室済み';
+  const fail = () => {
+    tearErr = true; dragging = false;
+    // 落ちた半券を、フェードインで元に戻す
+    stampEl.remove(); tk.classList.remove('ripped', 'fin', 'in', 'shake'); tk.classList.add('call', 'back');
+    tk.style.setProperty('--p', 0); h.style.transform = ''; h.style.transition = ''; h.style.opacity = '';
+    if (hd) hd.textContent = '受付までお越しください';
+    document.body.className = 'st-call'; startRing();
+    if (!document.getElementById('tearErr')) tk.insertAdjacentHTML('afterend', '<div class="err c" id="tearErr">通信できませんでした。もう一度なぞってください</div>');
+    setTimeout(() => tk.classList.remove('back'), 400);
+    if (pending) { pending = false; }
+    return false;
+  };
+  // 通信できないときは、動かす前にやめる
+  if (navigator.onLine === false) { tk.classList.add('snap'); h.style.transform = ''; tk.style.setProperty('--p', 0); setTimeout(() => tk.classList.remove('snap'), 320); tearErr = true; dragging = false; if (!document.getElementById('tearErr')) tk.insertAdjacentHTML('afterend', '<div class="err c" id="tearErr">通信できませんでした。もう一度なぞってください</div>'); return false; }
+  tearErr = false; const old = document.getElementById('tearErr'); if (old) old.remove();
   stopRing(); ensureAudio(); rip(); vibrate([60, 40, 90]);
-  tk.style.setProperty('--p', 1); tk.classList.add('ripped');
-  const wait = new Promise(r => setTimeout(r, 750));
+  const reduce = reduceMotion();
+  let failed = false;
   const save = db.collection('tickets').doc(me.id).update({ status: 'inroom', enteredAt: Date.now(), torn: true });
-  Promise.all([save, wait])
-    .then(() => { dragging = false; pending = false; render(); })
-    .catch(() => { alert('めくれませんでした。もう一度お試しください'); dragging = false; pending = false; render(); });
+  const result = Promise.race([save.then(() => true), sleep(5000).then(() => { throw new Error('timeout'); })]);
+  result.catch(() => { failed = true; });
+  // 1. 残りを一気に破り切る
+  tk.classList.add('fin'); tk.style.setProperty('--p', 1); h.style.transition = 'opacity .1s'; h.style.opacity = 0;
+  await sleep(120); if (failed) return fail();
+  // 2. 半券が浮いて、落ちていく
+  tk.classList.remove('fin');
+  stub.style.setProperty('--fx', (Math.random() * 40 - 20).toFixed(0) + 'px');
+  stub.style.setProperty('--fr', ((Math.random() < .5 ? -1 : 1) * (14 + Math.random() * 8)).toFixed(0) + 'deg');
+  tk.classList.add('ripped');
+  await sleep(reduce ? 200 : 300); if (failed) return fail();
+  // 3. はんこ。同時に震えて、背景が入室済みの緑へ
+  main.appendChild(stampEl);
+  if (!reduce) { tk.classList.add('shake'); setTimeout(() => tk.classList.remove('shake'), 90); }
+  tk.classList.remove('call'); tk.classList.add('in');
+  if (hd) hd.textContent = '入室しました';
+  document.body.className = 'st-in';
+  await sleep(reduce ? 300 : 500); if (failed) return fail();
+  try { await result; } catch (e) { return fail(); }
+  // 4. 完成した見た目のまま、入室済み画面に切り替える
+  dragging = false; pending = false; render();
+  return true;
 }
 
 /* ---------- 時計 ---------- */

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=28"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=29"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -14,17 +14,17 @@
   <div id="offline" class="offline" hidden>オフラインです（通信が切れています）。操作が反映されない場合があります。</div>
   <div class="topbar"><div class="inner">
     <div class="who-row"><span>スタッフ画面</span><button id="foldBtn" class="usrbtn" aria-label="上のバーを縮める">▲ 縮める</button><button id="userBtn" class="usrbtn" aria-label="ログアウト">👤 <span id="userName"></span></button></div>
-    <div class="slots" id="slots"></div>
     <button id="callNext" class="call btn-main">次の組を呼ぶ</button>
     <div class="bar2">
-      <button id="histBtn" class="big2">📋 履歴・検索</button>
+      <button id="histBtn" class="big2">📋 履歴</button>
+      <button id="orderBtn" class="big2">🔀 順番変更</button>
       <button id="gearBtn" class="big2">⚙ 設定</button>
     </div>
     <div class="stats" id="stats"></div><div class="avg" id="avgNote"></div>
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v28</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v29</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -35,6 +35,13 @@
     <div class="chips" id="hchips"></div></div>
   <div id="hlist"></div>
   <button id="hClose" class="full" style="min-height:56px">閉じる</button>
+</div></div>
+
+<div id="ord" class="modal big" hidden><div class="sheet">
+  <div class="shead"><h3>順番変更</h3><button id="oClose2" class="xbtn">閉じる</button></div>
+  <p style="color:#5a6378;font-size:14px;margin:0 4px 8px">順番待ちの組の順番を入れ替えます。番号は変わりません。</p>
+  <div id="olist"></div>
+  <button id="oClose" class="full" style="min-height:56px">閉じる</button>
 </div></div>
 
 <div id="acct" class="modal" hidden><div class="sheet">
@@ -71,7 +78,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=28"></script><script src="common.js?v=28"></script>
+<script src="firebase-config.js?v=29"></script><script src="common.js?v=29"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -177,6 +184,9 @@ const act = {
   // 呼び出したまま、順番を後ろにする（飛ばし中）。来たら戻せる
   // 順番待ちから飛ばすと、呼び出した状態で「飛ばし中」に入る
   skip: t => txRun(t.id, ['waiting', 'called'], cur => cur.status === 'waiting' ? { status: 'called', calledAt: Date.now(), skipped: true, skippedAt: Date.now() } : { skipped: true, skippedAt: Date.now() }, `${t.number}番を飛ばし中にしました`).then(ok => { if (ok && t.status === 'waiting') pushNotify(t.id); return ok; }),
+  call: t => txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${t.number}番を呼び出しました`).then(ok => { if (ok) pushNotify(t.id); return ok; }),
+  // 呼び出し中・飛ばし中から、順番待ちに戻す（順番はもとの位置）
+  towait: t => txRun(t.id, ['called'], () => ({ status: 'waiting', calledAt: del(), skipped: del(), skippedAt: del(), reNotifiedAt: del(), soonPushedAt: del() }), `${t.number}番を順番待ちに戻しました`),
   unskip: t => txRun(t.id, ['called'], () => ({ skipped: del(), skippedAt: del() }), `${t.number}番を呼び出し中に戻しました`)
 };
 (function () {
@@ -200,10 +210,6 @@ function render() {
   const line = list.filter(inLine).sort(byOrder);
   const skipped = list.filter(isSkipped).sort((a, b) => (a.skippedAt || 0) - (b.skippedAt || 0));
   const done = list.filter(isDone).sort((a, b) => (b.enteredAt || 0) - (a.enteredAt || 0));
-  // 呼び出し中の組の番号（空き枠は出さない）
-  $('slots').innerHTML = room.length || skipped.length
-    ? room.map(t => `<div class="slot called">${t.number}<small>呼び出し中</small></div>`).join('') + skipped.map(t => `<div class="slot skipped">${t.number}<small>飛ばし中</small></div>`).join('')
-    : '';
   $('callNext').disabled = !line.length;
   $('callNext').textContent = line.length ? `次の組を呼ぶ（${line[0].number}番）` : '呼び出せる組はありません';
   const sm = buildSummary(list);
@@ -220,9 +226,9 @@ function render() {
     const pill = isSkipped(t) ? '飛ばし中' : t.status === 'called' ? '呼び出し中' : (i === 0 ? '次' : '待ち');
     const hold = `<button data-hold="absent" data-id="${t.id}" style="user-select:none;-webkit-user-select:none;-webkit-touch-callout:none">欠席にする（長押し）</button>`;
     let acts = '';
-    if (isSkipped(t)) acts = `<button class="big btn-ok" data-a="enter" data-id="${t.id}">入室済みにする</button><button data-a="unskip" data-id="${t.id}">呼び出し中に戻す</button><button data-a="renotify" data-id="${t.id}">再通知</button>${hold}`;
-    else if (t.status === 'called') acts = `<button class="big btn-ok" data-a="enter" data-id="${t.id}">入室済みにする</button><button data-a="renotify" data-id="${t.id}">再通知</button><button data-a="skip" data-id="${t.id}">飛ばす</button>${hold}`;
-    else acts = `<button data-a="skip" data-id="${t.id}">飛ばす</button>${hold}`;
+    if (isSkipped(t)) acts = `<button class="big btn-ok" data-a="enter" data-id="${t.id}">入室済みにする</button><button data-a="unskip" data-id="${t.id}">呼び出し中に戻す</button><button data-a="towait" data-id="${t.id}">順番待ちに戻す</button><button data-a="renotify" data-id="${t.id}">再通知</button><button data-a="towait" data-id="${t.id}">順番待ちに戻す</button>${hold}`;
+    else if (t.status === 'called') acts = `<button class="big btn-ok" data-a="enter" data-id="${t.id}">入室済みにする</button><button data-a="renotify" data-id="${t.id}">再通知</button><button data-a="skip" data-id="${t.id}">飛ばす</button><button data-a="towait" data-id="${t.id}">順番待ちに戻す</button>${hold}`;
+    else acts = `<button class="big btn-ok" data-a="call" data-id="${t.id}">呼び出す</button><button data-a="skip" data-id="${t.id}">飛ばす</button>${hold}`;
     return `<div class="row ${isSkipped(t) ? 'skipped' : t.status}" data-since="${since || ''}" data-kind="${kind}" data-late="${t.status === 'called' && !t.skipped ? 1 : 0}">
       <div class="rtop"><button class="numbtn" data-a="check" data-id="${t.id}">${t.number}</button><div class="who">${label(t)}</div><span class="pill ${isSkipped(t) ? 'skipped' : t.status}">${pill}</span><span class="el"></span></div>
       <div class="racts">${acts}</div></div>`;
@@ -236,6 +242,7 @@ function render() {
   tickEl();
   if (!$('check').hidden) renderCheck();
   if (!$('hist').hidden) renderHist();
+  if (!$('ord').hidden) renderOrder();
   scheduleSummary();
 }
 function tickEl() {
@@ -320,6 +327,28 @@ $('histBtn').onclick = () => { $('hist').hidden = false; renderHist(); };
 $('hClose').onclick = $('hClose2').onclick = () => { $('hist').hidden = true; };
 $('hq').oninput = renderHist;
 $('hchips').onclick = e => { const b = e.target.closest('[data-f]'); if (b) { hFilter = b.dataset.f; renderHist(); } };
+
+/* ---------- 順番変更 ---------- */
+function renderOrder() {
+  const ls = list.filter(inLine).sort(byOrder);
+  $('olist').innerHTML = ls.length ? ls.map((t, i) => `<div class="hrow"><div class="hn">${t.number}</div>
+      <div class="hm"><div class="who">${label(t)}</div><div class="ho">${i + 1}番目</div></div>
+      <div class="omv"><button data-mv="top" data-id="${t.id}" ${i === 0 ? 'disabled' : ''}>先頭</button><button data-mv="up" data-id="${t.id}" ${i === 0 ? 'disabled' : ''}>▲</button><button data-mv="down" data-id="${t.id}" ${i === ls.length - 1 ? 'disabled' : ''}>▼</button></div></div>`).join('')
+    : '<div class="box" style="color:#8a93a6">順番待ちの組はありません</div>';
+}
+async function moveTicket(id, how) {
+  const ls = list.filter(inLine).sort(byOrder), i = ls.findIndex(t => t.id === id);
+  if (i < 0) return;
+  const rest = ls.filter(t => t.id !== id);
+  const at = how === 'top' ? 0 : how === 'up' ? i - 1 : i + 1;
+  if (at < 0 || at > rest.length) return;
+  const prev = rest[at - 1], next = rest[at];
+  const k = prev && next ? (orderKey(prev) + orderKey(next)) / 2 : !prev ? orderKey(next) - 1 : orderKey(prev) + 1;
+  try { await db.collection('tickets').doc(id).update({ orderKey: k }); } catch (e) { alert('順番を変えられませんでした：' + e.message); }
+}
+$('orderBtn').onclick = () => { $('ord').hidden = false; renderOrder(); };
+$('oClose').onclick = $('oClose2').onclick = () => { $('ord').hidden = true; };
+$('olist').onclick = e => { const b = e.target.closest('[data-mv]'); if (b && !b.disabled) moveTicket(b.dataset.id, b.dataset.mv); };
 
 /* ---------- 管理メニュー ---------- */
 $('gearBtn').onclick = () => {
