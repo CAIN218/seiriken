@@ -179,3 +179,19 @@ body.st-none .tk-title{padding-bottom:2px}
 @keyframes drop{0%{transform:scale(.4);opacity:.9}70%{opacity:.25}100%{transform:scale(11);opacity:0}}
 .tabs button>*{position:relative;z-index:1}
 @media (prefers-reduced-motion:reduce){.tabs button.called::before,.tabs button.called::after{animation:none;display:none}}
+
+/* v41 案1：ゲートパス。上の帯に会場名、番号は大きく、前にいる組を点で見せる */
+body{font-family:"Zen Maru Gothic",system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif}
+body.st-wait{--bg:#e6f0ec}
+.tk-band{margin:-14px -16px 8px;padding:10px 16px;background:#2f6b5c;color:#fff;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:baseline;font-weight:900;font-size:16px;text-align:left}
+.tk-band small{font-size:12px;font-weight:700;opacity:.85}
+.tk.call .tk-band{background:#6a58c4}
+.tk.in .tk-band,.tk-main.full .tk-band{background:#2f6b5c}
+body.st-end .tk-band{background:#8a948f}
+.tk-num{font-family:"Barlow Condensed","Zen Maru Gothic",sans-serif;font-weight:800;font-size:clamp(100px,34vw,150px);line-height:.95}
+.tk-eta .huge b,.tk-eta .huge{font-family:"Zen Maru Gothic",sans-serif}
+.dots{display:flex;gap:7px;justify-content:center;align-items:center;margin-top:10px;flex-wrap:wrap}
+.dots i{width:13px;height:13px;border-radius:50%;background:#cbd7d2}
+.dots s{text-decoration:none;color:var(--sub);font-weight:800}
+.dots em{font-style:normal;background:#2f6b5c;color:#fff;font-weight:800;font-size:13px;border-radius:99px;padding:2px 12px}
+body.st-none .tk-main.full{background:#fff}
