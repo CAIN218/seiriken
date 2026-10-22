@@ -28,9 +28,9 @@ service cloud.firestore {
       // お客さんは発券時の last の更新だけ可（停止フラグなどはスタッフのみ）
       // 3人以上は複数枚を一度に発行するので、1回で最大4枚（8人）まで増やせる
       allow create: if request.auth != null
-        || (request.resource.data.keys().hasOnly(['last']) && request.resource.data.last >= 1 && request.resource.data.last <= 4);
+        || (request.resource.data.keys().hasOnly(['last', 'gLast']) && request.resource.data.last >= 1 && request.resource.data.last <= 4);
       allow update: if request.auth != null
-        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['last'])
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['last', 'gLast'])
             && request.resource.data.last > resource.data.get('last', 0)
             && request.resource.data.last <= resource.data.get('last', 0) + 4);
     }

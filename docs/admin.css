@@ -149,3 +149,35 @@ h2{font-size:18px;color:var(--fg);border-left:6px solid var(--line);padding-left
 .pseg .pn small{font-size:16px;margin-left:2px}
 .pseg button{flex:0 0 72px}
 .pseg input{width:auto}
+
+/* v38 集計：4つの枠をそろえて並べる */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.sc{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;min-height:58px;padding:4px 2px;border-radius:12px;background:#fff;border:2px solid var(--line);color:var(--fg);font:inherit;line-height:1.1}
+.sc small{font-size:12px;font-weight:800;color:var(--sub)}
+.sc b{font-size:24px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1}
+.sc i{font-style:normal;font-size:12px;font-weight:800;color:var(--sub);margin-top:-1px}
+button.sc{min-height:58px;padding:4px 2px;cursor:pointer;touch-action:manipulation}
+.who-row{gap:6px}
+.who-row .hico{display:flex;gap:4px;align-items:center}
+.paperbtn{font-size:13px;padding:0 10px}
+
+/* v38 設定画面：見出しで区切り、オン・オフはスイッチに */
+.sec{margin:18px 4px 6px;font-size:15px;color:var(--sub);font-weight:800}
+.stitle{font-weight:800;font-size:17px}
+.sdesc{font-size:14px;color:var(--sub);margin:2px 0 8px;line-height:1.5}
+.box .full{min-height:52px}
+.setrow{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+.setrow:last-child{border-bottom:0}
+.setrow .stx{flex:1;min-width:0}
+.setrow .sdesc{margin-bottom:0}
+.sw{flex:0 0 auto;min-width:84px;min-height:52px;border-radius:99px;padding:0 14px;background:#e3e6ee;color:var(--sub);border:2px solid var(--line);font-weight:900}
+.sw.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.state{display:flex;flex-direction:column;gap:2px;border-radius:12px;padding:10px 12px;margin-bottom:8px;font-weight:700}
+.state b{font-size:19px}
+.state.ok{background:var(--okbg);color:var(--ok)}
+.state.bad{background:var(--badbg);color:var(--bad)}
+.inner-d summary,.box.danger summary{cursor:pointer;font-weight:800;padding:8px 0;min-height:44px}
+.inner-d input{margin-top:6px}
+.box.danger{border:2px solid #f0caca}
+.ico,.paperbtn,.usrbtn{white-space:nowrap}
+@media(max-width:380px){.paperbtn{font-size:12px;padding:0 7px}.ico{padding:0 8px;font-size:13px}#userName{max-width:48px}}

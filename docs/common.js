@@ -11,6 +11,9 @@ const ALERT_MIN = window.ALERT_MIN || 5;
 // 2人1組で1枚。余りは1人の券（3人 → 2名と1名の2枚）
 const splitPeople = n => { const a = []; for (let r = n; r > 0; r -= 2) a.push(Math.min(2, r)); return a; };
 
+// 複数枚の券につける枝番：a, b, … z の次は a に戻る
+const grpLetter = g => String.fromCharCode(97 + g % 26);
+
 function today() {
   const d = new Date(Date.now() + 9 * 3600 * 1000); // JST
   return d.toISOString().slice(0, 10);
