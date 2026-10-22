@@ -4,7 +4,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-
 button{font:inherit;cursor:pointer;touch-action:manipulation;border:0;border-radius:12px;min-height:48px;padding:0 16px;font-weight:800;background:#fff;color:var(--fg);border:2px solid var(--line)}
 button:disabled{opacity:.4}
 .btn-ok{background:var(--ok);color:#fff;border-color:var(--ok)}.btn-warn{background:var(--warn);color:#fff;border-color:var(--warn)}.btn-bad{background:var(--bad);color:#fff;border-color:var(--bad)}.btn-main{background:var(--accent);color:#fff;border-color:var(--accent)}
-.offline{background:var(--bad);color:#fff;text-align:center;font-weight:900;padding:8px}
+.offline{background:var(--bad);color:#fff;text-align:center;font-weight:900;font-size:14px;line-height:1.4;padding:8px 10px}
 .topbar{position:sticky;top:0;z-index:20;background:var(--bg);padding:8px 10px 8px;border-bottom:2px solid var(--line);box-shadow:0 2px 6px rgba(0,0,0,.08)}
 .inner{max-width:960px;margin:0 auto}
 .who-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:13px;font-weight:800;color:var(--sub)}
@@ -234,3 +234,6 @@ h2{border-left:0;padding-left:4px;font-size:14px;color:var(--sub)}
 /* お客さん用の発行画面へのリンク */
 .cust-link{color:var(--accent);font-weight:800;text-decoration:underline}
 .cust-link.btn-like{display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:12px;background:#fff;border:2px solid var(--line);text-decoration:none;margin-bottom:8px;color:var(--fg)}
+
+/* お客さんの画面に呼び出しが届いたか */
+.ack{font-weight:800;font-size:14px;white-space:nowrap}.ack.ok{color:var(--ok)}.ack.no{color:#a8741a}

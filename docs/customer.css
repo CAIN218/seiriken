@@ -199,3 +199,8 @@ body.st-none .tk-main.full{background:#fff}
 /* スタッフ用ログインへの小さなリンク（お客さんの目に付きにくくする） */
 .staffl{margin-top:2px}
 .staffl a{font-size:12px;color:var(--sub);opacity:.7;text-decoration:none;padding:10px 12px;display:inline-block}
+
+/* 通信の警告（上に貼りつく帯） */
+#net{position:sticky;top:0;z-index:60;padding:10px 14px;text-align:center;font-size:16px;line-height:1.45;font-weight:700}
+#net small{font-size:13px;font-weight:700;opacity:.85}
+#net.bad{background:#b04545;color:#fff}#net.warn{background:#f3e7b8;color:#5c4400}#net.ok{background:#3a7d6e;color:#fff}

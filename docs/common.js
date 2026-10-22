@@ -73,3 +73,44 @@ function currentTicket(list) {
   return list.filter(t => t.status === 'called' || t.status === 'inroom' || t.status === 'guided')
     .sort((a, b) => calledAtOf(b) - calledAtOf(a))[0] || null;
 }
+
+/* ---------- エラーの原因とコード ----------
+   失敗したときは「何をしようとして（操作）、なぜ失敗したか（原因）」を画面に出す。
+   エラーコードは 操作-原因（例：IS-N1）。一覧は README とトラブル対処ガイドにある */
+const WARN_MS = 5 * 60 * 1000; // 通信が切れている・スタッフ側の更新が止まっている、と警告するまでの時間
+const OPS = { IS: '整理券を発行できませんでした', TR: '半券をもぎれませんでした', CA: 'キャンセルできませんでした', WT: '最新の状態を取得できませんでした', OP: '操作できませんでした', PP: '紙の券を発券できませんでした', QU: '列の組を追加できませんでした', WK: '人数を記録できませんでした', CF: '設定を変更できませんでした', DL: '削除できませんでした', UN: '元に戻せませんでした', LG: 'ログインできませんでした' };
+const CAUSES = {
+  N1: ['端末がオフラインです', 'Wi-Fiやモバイル通信を確認してください'],
+  N2: ['サーバーから応答がありません（通信が不安定です）', '少し待ってから、もう一度お試しください'],
+  P1: ['この操作が許可されていません', '会場のスタッフにお知らせください'],
+  A1: ['ログインの有効期限が切れています', '一度ログアウトして、ログインし直してください'],
+  Q1: ['サービスの利用上限に達しました', 'スタッフにお知らせください'],
+  C1: ['他の端末が先に操作しました', '画面を最新にしました。もう一度ご確認ください'],
+  G1: ['対象の整理券が見つかりません', '削除された可能性があります'],
+  S1: ['ただいま発券を停止しています', '再開までお待ちください'],
+  S3: ['順番の更新が止まっています', '会場のスタッフにお声がけください'],
+  B1: ['入力内容に問題があります', '入力を確認してください'],
+  X0: ['原因を特定できませんでした', 'もう一度お試しください。続く場合はコードをスタッフにお伝えください']
+};
+function causeKey(e) {
+  const m = (e && e.message) || '', c = (e && e.code) || '';
+  if (m === 'closed') return 'S1';
+  if (m === 'changed') return 'C1';
+  if (m === 'gone') return 'G1';
+  if (m === 'timeout' || c === 'deadline-exceeded') return 'N2';
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'N1';
+  if (c === 'unavailable') return 'N2';
+  if (c === 'permission-denied') return 'P1';
+  if (c === 'unauthenticated' || /auth\/(network-request-failed)/.test(c)) return c === 'unauthenticated' ? 'A1' : 'N2';
+  if (/auth\/(invalid-credential|wrong-password|user-not-found|invalid-email|too-many-requests)/.test(c)) return 'B1';
+  if (c === 'resource-exhausted') return 'Q1';
+  if (c === 'not-found') return 'G1';
+  if (c === 'aborted' || c === 'failed-precondition') return 'C1';
+  if (c === 'invalid-argument') return 'B1';
+  return 'X0';
+}
+// 「○○できませんでした。原因：…。対処：…（エラーコード XX-YY）」の文章を作る
+function errText(op, e) {
+  const k = causeKey(e), c = CAUSES[k], raw = k === 'X0' && e ? ':' + (e.code || e.message || '').toString().slice(0, 40) : '';
+  return `${OPS[op] || OPS.OP}。原因：${c[0]}。${c[1]}。（エラーコード ${op}-${k}${raw}）`;
+}

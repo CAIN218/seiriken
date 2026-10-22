@@ -16,7 +16,11 @@ service cloud.firestore {
         || (resource.data.status in ['waiting', 'skipped'] && request.resource.data.status == 'cancelled'
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy']))
         || (resource.data.status == 'called' && request.resource.data.status == 'inroom'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'enteredAt', 'torn']));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'enteredAt', 'torn']))
+        // 呼び出しがお客さんの画面に届いた印（seenAt）。呼び出し中の券に、1回だけ書ける
+        || (resource.data.status == 'called' && request.resource.data.status == 'called'
+            && !('seenAt' in resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt']));
       allow delete: if request.auth != null;
     }
     match /summary/{day} {
