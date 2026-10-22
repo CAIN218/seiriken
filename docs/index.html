@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="customer.css?v=37"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="customer.css?v=39"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=37"></script><script src="common.js?v=37"></script>
+<script src="firebase-config.js?v=39"></script><script src="common.js?v=39"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -64,10 +64,13 @@ async function issue() {
     await db.runTransaction(async tx => {
       const c = await tx.get(ref);
       if (c.exists && c.data().closed) throw new Error('closed');
-      const n0 = c.exists ? c.data().last || 0 : 0;
-      tx.set(ref, { last: n0 + parts.length }, { merge: true });
+      const n0 = c.exists ? c.data().last || 0 : 0, g0 = c.exists ? c.data().gLast || 0 : 0;
+      // 複数枚のときは、同じ人の券に同じ枝番（a, b, … z の次は a に戻る）を付ける
+      const grp = parts.length > 1 ? grpLetter(g0) : null;
+      tx.set(ref, parts.length > 1 ? { last: n0 + parts.length, gLast: g0 + 1 } : { last: n0 + parts.length }, { merge: true });
       parts.forEach((p, i) => {
         const t = { day: today(), number: n0 + 1 + i, name, people: p, status: 'waiting', createdAt: Date.now() };
+        if (grp) t.grp = grp;
         if (TEST) t.test = true;
         tx.set(refs[i], t);
       });
@@ -84,12 +87,12 @@ const allEnded = () => myIds.map(id => mine[id]).filter(Boolean).every(t => ['in
 
 /* ---------- 画面 ---------- */
 const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${tabsHtml()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div></div></div>`; };
-const tabState = t => ({ called: '呼び出し中', waiting: '順番待ち', inroom: '入室済み', guided: '入室済み', cancelled: 'キャンセル', absent: '無効' })[t.status] || '';
+const tabState = t => ({ called: '呼び出し', waiting: '順番待ち', inroom: '入室済み', guided: '入室済み', cancelled: 'キャンセル', absent: '無効' })[t.status] || '';
 // 3人以上のときは、2人1組ずつ別の整理券になる。券を切り替えるタブ
 const tabsHtml = () => {
-  const ts = myIds.map(id => mine[id]).filter(Boolean);
+  const ts = myIds.map(id => mine[id]).filter(Boolean).sort((a, b) => a.number - b.number);
   if (ts.length < 2) return '';
-  return `<div class="tabs-note">整理券は${ts.length}枚あります。呼ばれた券から、順にもぎってください。</div><div class="tabs">${ts.map(t => `<button data-tab="${t.id}" class="${me && me.id === t.id ? 'on' : ''}"><b>${t.number}番</b><small>${t.people}名・${tabState(t)}</small></button>`).join('')}</div>`;
+  return `<div class="tabs-note">整理券は${ts.length}枚あります。呼ばれた券から、順にもぎってください。</div><div class="tabs">${ts.map(t => `<button data-tab="${t.id}" class="${me && me.id === t.id ? 'on' : ''} ${t.status === 'called' ? 'called' : ''}"><b>${t.number}番</b><small>${t.people}名・${tabState(t)}</small></button>`).join('')}</div>`;
 };
 const againBtn = () => allEnded() ? '<button class="btn sub" id="again">新しい整理券を発行する</button>' : '';
 const cancelBtn = () => '<div class="c"><button class="linkbtn" id="cancel">整理券をキャンセルする</button></div>';

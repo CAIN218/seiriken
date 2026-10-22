@@ -170,3 +170,12 @@ body.st-none .tk-title{padding-bottom:2px}
 .tabs button b{font-size:20px;font-variant-numeric:tabular-nums}
 .tabs button small{font-size:13px;font-weight:700;color:var(--sub)}
 .tabs button.on{background:#fff;border-color:var(--accent);box-shadow:0 2px 8px rgba(60,50,30,.14)}
+
+/* 呼ばれた券のタブ：水面に水滴が落ちたように、輪がぽわーんと広がる */
+.tabs button{position:relative;overflow:hidden}
+.tabs button.called{border-color:#7b6bd0;background:#f1eefb}
+.tabs button.called::before,.tabs button.called::after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:2px solid #9a8de0;background:rgba(154,141,224,.18);opacity:0;pointer-events:none;animation:drop 2.6s ease-out infinite}
+.tabs button.called::after{animation-delay:1.3s}
+@keyframes drop{0%{transform:scale(.4);opacity:.9}70%{opacity:.25}100%{transform:scale(11);opacity:0}}
+.tabs button>*{position:relative;z-index:1}
+@media (prefers-reduced-motion:reduce){.tabs button.called::before,.tabs button.called::after{animation:none;display:none}}

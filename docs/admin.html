@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=37"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=39"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -13,13 +13,15 @@
 <div id="app" hidden>
   <div id="offline" class="offline" hidden>オフラインです（通信が切れています）。操作が反映されない場合があります。</div>
   <div class="topbar"><div class="inner">
-    <div class="who-row"><button id="paperBtn" class="paperbtn">スマホなしで発券</button><span class="hico"><button id="histBtn" class="ico">履歴</button><button id="gearBtn" class="ico">設定</button><button id="userBtn" class="usrbtn" aria-label="アカウント"><span id="userName"></span></button></span></div>
-    <button id="callNext" class="call btn-main">次の組を呼ぶ</button>
+    <div class="who-row"><span class="hico"><button id="paperBtn" class="paperbtn">紙で発券</button><button id="walkBtn" class="paperbtn">人数を記録</button></span><span class="hico"><button id="histBtn" class="ico">履歴</button><button id="gearBtn" class="ico">設定</button><button id="userBtn" class="usrbtn" aria-label="アカウント"><span id="userName"></span></button></span></div>
+    <div class="nextcard"><div class="hd2"><span>次の順番</span><span id="ncWait"></span></div>
+      <div class="big"><b id="ncNum">-</b><span id="ncName"></span></div>
+      <div class="track" id="track" role="button" tabindex="0" aria-label="右へスライドして、次の組を呼ぶ"><i id="knob">›</i><span id="trackTxt">右へスライドして呼ぶ</span></div></div>
     <div class="stats" id="stats"></div>
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v37</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v39</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -38,7 +40,7 @@
 </div></div>
 
 <div id="psheet" class="modal" hidden><div class="sheet">
-  <div class="shead"><h3>スマホなしで発券</h3><button id="pClose" class="xbtn">閉じる</button></div>
+  <div class="shead"><h3>紙で発券</h3><button id="pClose" class="xbtn">閉じる</button></div>
   <div id="pBody"></div>
 </div></div>
 
@@ -77,25 +79,30 @@
 
 <div id="menu" class="modal big" hidden><div class="sheet">
   <div class="shead"><h3>設定</h3><button id="menuClose2" class="xbtn">閉じる</button></div>
+  <h4 class="sec">整理券の発行</h4>
   <div class="box" id="stopBox"></div>
-  <div class="box" id="waitBox"></div>
-  <div class="box" id="multiBox"></div>
-  <div class="box"><div style="font-weight:800">列から整理券式に切り替える</div><div style="font-size:14px;color:#5a6378">いま列に並んでいる組数と人数を入力すると、番号のない「列」の組として順番待ちの先頭に入ります。</div><button id="queueBtn" class="full" style="min-height:52px">列の組を入力する</button></div>
-  <div class="box"><button id="csvBtn" class="full">今日の記録をCSVでダウンロード</button></div>
-  <div class="box"><div style="font-weight:800">テスト用の整理券の削除</div>
-    <div style="font-size:14px;color:#5a6378">お客さん画面のURLの末尾に <b>?test=1</b> を付けて発行した整理券だけを削除します。</div>
-    <button id="testDel" class="full btn-warn">テスト用の整理券を削除する</button></div>
-  <div class="box"><div style="font-weight:800">すべてリセット</div>
-    <div style="font-size:14px;color:#5a6378">今日の整理券をすべて削除し、番号を1番に戻します。実行するには「リセット」と入力してください。</div>
+  <h4 class="sec">お客さん画面</h4>
+  <div class="box" id="custBox"></div>
+  <h4 class="sec">列から整理券に切り替える</h4>
+  <div class="box"><div class="sdesc">いま列に並んでいる組数と人数を入力すると、番号のない「列」の組として、順番待ちの先頭に入ります。</div><button id="queueBtn" class="full">列の組を入力する</button></div>
+  <h4 class="sec">記録</h4>
+  <div class="box"><div class="sdesc">今日の整理券の記録を、表計算ソフトで開けるファイルにします。</div><button id="csvBtn" class="full">CSVでダウンロード</button></div>
+  <h4 class="sec">削除（注意）</h4>
+  <details class="box danger"><summary>削除の操作を開く</summary>
+    <div class="stitle" style="margin-top:10px">テスト用の整理券を削除</div>
+    <div class="sdesc">お客さん画面のURLの末尾に <b>?test=1</b> を付けて発行した整理券だけを削除します。</div>
+    <button id="testDel" class="full btn-warn">テスト用の整理券を削除する</button>
+    <div class="stitle" style="margin-top:14px">すべてリセット</div>
+    <div class="sdesc">今日の整理券をすべて削除し、番号を1番に戻します。実行するには「リセット」と入力してください。</div>
     <input id="resetIn" type="text" placeholder="リセット" autocomplete="off">
-    <button id="resetBtn" class="full btn-bad" disabled>すべてリセットする</button></div>
-  <button id="menuClose" class="full" style="min-height:56px">閉じる</button>
+    <button id="resetBtn" class="full btn-bad" disabled>すべてリセットする</button></details>
+  <button id="menuClose" class="full" style="min-height:56px;margin-top:6px">閉じる</button>
 </div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=37"></script><script src="common.js?v=37"></script>
+<script src="firebase-config.js?v=39"></script><script src="common.js?v=39"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -104,11 +111,11 @@ const del = () => firebase.firestore.FieldValue.delete();
 let list = [], cfg = {}, unsub = null, unsubCnt = null, cachedSince = 0;
 let holdEl = null, holdTimer = null, pendingRender = false;
 // 番号のない組：列から切り替えたときの組は「列1, 列2…」（number は負）、人数だけの記録は「記録」
-const nl = t => t.number > 0 ? String(t.number) : t.walkin ? '記録' : '列' + (-t.number);
-const nm = t => t.number > 0 ? t.number + '番' : nl(t);
+const nl = t => t.number > 0 ? t.number + (t.grp ? '-' + t.grp : '') : t.walkin ? '記録' : '列' + (-t.number);
+const nm = t => t.number > 0 && !t.grp ? t.number + '番' : nl(t);
 const kindOf = t => t.queue ? '列' : t.walkin ? '記録' : t.paper ? '紙' : '';
 const groupsOf = t => t.walkin ? Math.ceil((t.people || 1) / 2) : 1;
-const label = t => `${kindOf(t) ? `<span class="pmark">${kindOf(t)}</span> ` : ''}${t.name ? esc(t.name) : '（名前なし）'} <small>${t.people}名</small>`;
+const label = t => `${kindOf(t) ? `<span class="pmark">${kindOf(t)}</span> ` : ''}${t.name ? esc(t.name) : '（名前なし）'}${t.queue ? '' : ` <small>${t.people}名</small>`}`;
 const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const fmtT = ms => ms ? new Date(ms).toLocaleTimeString('ja-JP', { hour12: false }) : '';
 
@@ -192,6 +199,8 @@ const act = {
   enter: t => txRun(t.id, ['called'], () => ({ status: 'inroom', enteredAt: Date.now(), torn: del() }), `${nm(t)}を入室済みにしました`),
   // 列の組：順番待ちのまま、入室済みにする
   enterw: t => txRun(t.id, ['waiting'], () => ({ status: 'inroom', enteredAt: Date.now() }), `${nm(t)}を入室済みにしました`),
+  // 人数だけの記録は、呼び出し中には戻せない。間違いは削除する
+  delwalk: async t => { if (confirm(`この記録（${t.people}人）を削除します。よろしいですか？`)) await db.collection('tickets').doc(t.id).delete().catch(e => alert('削除できませんでした：' + e.message)); },
   absent: t => txRun(t.id, ['waiting', 'called'], cur => ({ status: 'absent', absentAt: Date.now(), absentBy: 'staff', absentFrom: cur.status }), `${nm(t)}を欠席にしました`),
   // 入室済みにしたのを取り消して、呼び出し中に戻す
   reopen: t => txRun(t.id, ['inroom', 'guided'], () => ({ status: 'called', enteredAt: del(), torn: del() }), `${nm(t)}を呼び出し中に戻しました`),
@@ -215,6 +224,7 @@ function callNext() {
   const line = list.filter(inLine).sort(byOrder);
   if (!line.length) return;
   const t = line[0];
+  if (t.queue) return act.enterw(t); // 列の組は、呼ぶとそのまま入室済みにする
   txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${nm(t)}を呼び出しました`)
 }
 
@@ -224,11 +234,15 @@ function render() {
   const room = list.filter(inRoom).sort((a, b) => calledAtOf(a) - calledAtOf(b));
   const line = list.filter(inLine).sort(byOrder);
   const done = list.filter(isDone).sort((a, b) => (b.enteredAt || 0) - (a.enteredAt || 0));
-  $('callNext').disabled = !line.length;
-  $('callNext').textContent = line.length ? `次の組を呼ぶ（${nm(line[0])}）` : '呼び出せる組はありません';
+  const nx = line[0];
+  $('ncWait').textContent = `待ち ${line.length}組`;
+  $('ncNum').textContent = nx ? nm(nx) : '-';
+  $('ncName').textContent = nx ? (nx.queue ? '列の組（呼ぶとそのまま入室済み）' : `${nx.name || ''}　${nx.people}名`) : '';
+  $('trackTxt').textContent = nx ? '右へスライドして呼ぶ' : '呼び出せる組はありません';
+  $('track').classList.toggle('off', !nx);
   const nBad = list.filter(isInvalid).length;
-  $('stats').innerHTML = `<span>待ち <b>${line.length}</b>組</span><span>呼び出し中 <b>${room.length}</b>組</span><span>入室済み <b>${done.reduce((a, t) => a + groupsOf(t), 0)}</b>組 <b>${done.reduce((a, t) => a + (t.people || 0), 0)}</b>人</span><button id="statBad" class="statlink">無効 <b>${nBad}</b></button><button id="walkBtn" class="statlink">人数を記録</button>`;
-  $('walkBtn').onclick = openWalk;
+  const doneP = done.reduce((a, t) => a + (t.people || 0), 0);
+  $('stats').innerHTML = `<span class="chip2">呼び出し中 <b>${room.length}</b>組</span><span class="chip2">入室済み <b>${doneP}</b>人</span><button id="statBad" class="chip2">無効 <b>${nBad}</b>組</button>`;
   $('statBad').onclick = () => { hFilter = 'bad'; $('hq').value = ''; $('hist').hidden = false; renderHist(); };
   $('stopNote').innerHTML = cfg.closed ? `<div class="notice stop">発券を停止中${cfg.closedReason ? '：' + esc(cfg.closedReason) : ''}</div>` : '';
   document.body.style.background = cfg.closed ? '#f3e4e4' : '';
@@ -245,7 +259,7 @@ function render() {
     ${room.length ? `<h2>呼び出し中（${room.length}組）</h2>${room.map(rowHtml).join('')}` : ''}
     ${line.length ? `<h2>順番待ち（${line.length}組）</h2>${line.map(rowHtml).join('')}` : ''}
     ${!room.length && !line.length ? '<div class="row" style="color:#8a93a6">呼び出し中・順番待ちの組はありません</div>' : ''}</div>
-    <details style="margin-top:12px"><summary style="font-weight:800;color:#5a6378;padding:8px 4px">入室済み（${done.reduce((a, t) => a + groupsOf(t), 0)}組・${done.reduce((a, t) => a + (t.people || 0), 0)}人）</summary><div class="grid">${done.map(doneHtml).join('')}</div></details>`;
+    <details style="margin-top:12px"><summary style="font-weight:800;color:#5a6378;padding:8px 4px">入室済み（${done.reduce((a, t) => a + (t.people || 0), 0)}人）</summary><div class="grid">${done.map(doneHtml).join('')}</div></details>`;
   tickEl();
   if (!$('check').hidden) renderCheck();
   if (!$('hist').hidden) renderHist();
@@ -304,7 +318,17 @@ document.addEventListener('pointerdown', e => {
 });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => document.addEventListener(ev, () => { if (holdEl) endHold(); }, true));
 document.addEventListener('contextmenu', e => { if (e.target.closest('[data-hold]')) e.preventDefault(); });
-$('callNext').onclick = callNext;
+// 次の組を呼ぶ：つまみを右までなぞると確定する（押し間違い防止）。Enter・スペースでも呼べる
+(() => {
+  const tr = $('track'), kn = $('knob'); let sx = 0, x = 0, max = 1, on = false;
+  const set = v => { x = Math.max(0, Math.min(max, v)); kn.style.transform = `translateX(${x}px)`; tr.style.setProperty('--p', max ? x / max : 0); };
+  const back = () => { kn.style.transition = 'transform .25s ease'; set(0); setTimeout(() => { kn.style.transition = ''; }, 260); };
+  kn.onpointerdown = e => { if (tr.classList.contains('off')) return; on = true; sx = e.clientX; max = tr.clientWidth - kn.offsetWidth - 8; kn.style.transition = ''; kn.setPointerCapture(e.pointerId); e.preventDefault(); };
+  kn.onpointermove = e => { if (on) set(e.clientX - sx); };
+  const end = () => { if (!on) return; on = false; if (x >= max * 0.85) { set(max); callNext(); setTimeout(back, 350); } else back(); };
+  kn.onpointerup = end; kn.onpointercancel = end;
+  tr.onkeydown = e => { if ((e.key === 'Enter' || e.key === ' ') && !tr.classList.contains('off')) { e.preventDefault(); callNext(); } };
+})();
 
 /* ---------- 入口確認 ---------- */
 function openCheck(num) { $('check').hidden = false; $('chkIn').value = num || ''; renderCheck(); if (!num) setTimeout(() => $('chkIn').focus(), 50); }
@@ -360,6 +384,7 @@ function renderSheet() {
   if (t.status === 'called') btns = b('enter', '入室済みにする', 'btn-ok big') + hold;
   else if (t.status === 'waiting' && t.queue) btns = b('enterw', '入室済みにする', 'btn-ok big') + hold;
   else if (t.status === 'waiting') btns = b('call', '今すぐ呼ぶ', 'btn-ok big') + b('first', '先頭にする', '', first && first.id === t.id) + b('back', '後ろへ回す') + hold;
+  else if (isDone(t) && t.walkin) btns = b('delwalk', 'この記録を削除する', 'btn-bad');
   else if (isDone(t)) btns = b('reopen', '呼び出し中に戻す');
   else btns = `<div class="box" style="color:#5a6378">${stateName(t)}です。操作はありません。</div>`;
   $('rsTitle').innerHTML = `${nm(t)}　${label(t)}　<span class="pill ${isDone(t) ? 'inroom' : t.status}">${stateName(t)}</span>`;
@@ -474,21 +499,23 @@ async function issuePaper() {
   if (pf.busy) return; pf.busy = true; pf.err = ''; renderPaper();
   const ref = counter(), parts = splitPeople(pf.people), refs = parts.map(() => db.collection('tickets').doc());
   const ahead = list.filter(inLine).length, gap = buildSummary(list).avgGapSec || DEFAULT_GAP_SEC, people = pf.people;
-  let n0 = 0;
+  let n0 = 0, grp = null;
   try {
     await db.runTransaction(async tx => {
       const c = await tx.get(ref);
       if (c.exists && c.data().closed) throw new Error('closed');
       n0 = c.exists ? c.data().last || 0 : 0;
-      tx.set(ref, { last: n0 + parts.length }, { merge: true });
-      parts.forEach((p, i) => tx.set(refs[i], { day: today(), number: n0 + 1 + i, name, people: p, status: 'waiting', createdAt: Date.now(), paper: true }));
+      const g0 = c.exists ? c.data().gLast || 0 : 0; grp = parts.length > 1 ? grpLetter(g0) : null;
+      tx.set(ref, parts.length > 1 ? { last: n0 + parts.length, gLast: g0 + 1 } : { last: n0 + parts.length }, { merge: true });
+      parts.forEach((p, i) => tx.set(refs[i], { day: today(), number: n0 + 1 + i, name, people: p, status: 'waiting', createdAt: Date.now(), paper: true, ...(grp ? { grp } : {}) }));
     });
-    pf.result = { items: parts.map((p, i) => ({ n: n0 + 1 + i, people: p })), name, people, eta: new Date(Math.round((Date.now() + (ahead + 1) * gap * 1000) / 300000) * 300000) };
+    pf.result = { items: parts.map((p, i) => ({ n: n0 + 1 + i + (grp ? '-' + grp : ''), people: p })), name, people, eta: new Date(Math.round((Date.now() + (ahead + 1) * gap * 1000) / 300000) * 300000) };
   } catch (e) {
     pf.err = e.message === 'closed' ? '発券を停止中です。設定から再開してください' : '発券できませんでした。もう一度お試しください';
   }
   pf.busy = false; renderPaper();
 }
+$('walkBtn').onclick = openWalk;
 $('paperBtn').onclick = () => { pf.result = null; pf.err = ''; $('psheet').hidden = false; renderPaper(); };
 $('pClose').onclick = () => { $('psheet').hidden = true; };
 
@@ -545,27 +572,30 @@ $('wGo').onclick = async () => {
 };
 
 /* ---------- 管理メニュー ---------- */
-$('gearBtn').onclick = () => {
+// スイッチの行（タップでオン・オフを切り替える）
+const switchRow = (id, title, desc, on) => `<div class="setrow"><div class="stx"><div class="stitle">${title}</div><div class="sdesc">${desc}</div></div><button id="${id}" class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}"><span>${on ? 'オン' : 'オフ'}</span></button></div>`;
+const saveCfg = patch => counter().set(patch, { merge: true }).catch(e => alert('変更できませんでした：' + e.message));
+function renderMenu() {
   $('stopBox').innerHTML = cfg.closed
-    ? `<div style="font-weight:800">発券を停止しています</div><div style="color:#5a6378">${cfg.closedReason ? '理由：' + esc(cfg.closedReason) : ''}${cfg.reopenAt ? '　再開の予定：' + esc(cfg.reopenAt) : ''}</div><button id="reopenBtn" class="full btn-ok" style="min-height:56px">発券を再開する</button>`
-    : `<div style="font-weight:800">発券を一時停止する</div><div style="font-size:14px;color:#5a6378">停止すると、お客さんは整理券を発行できません。会場で列に並んでもらう運用に切り替えてください。すでに整理券を持っている組は、先に呼び出してください。</div>
+    ? `<div class="state bad"><b>発券を停止中</b>${cfg.closedReason ? `<span>理由：${esc(cfg.closedReason)}</span>` : ''}${cfg.reopenAt ? `<span>再開の予定：${esc(cfg.reopenAt)}</span>` : ''}</div><button id="reopenBtn" class="full btn-ok">発券を再開する</button>`
+    : `<div class="state ok"><b>発券中</b><span>お客さんは整理券を発行できます</span></div>
+       <details class="inner-d"><summary>発券を一時停止する</summary>
+       <div class="sdesc" style="margin-top:8px">停止すると、お客さんは整理券を発行できません。すでに整理券を持っている組は、先に呼び出してください。</div>
        <input id="stopReason" type="text" placeholder="停止の理由（例：休憩中）"><input id="reopenAt" type="text" placeholder="再開の予定（例：14:30ごろ）">
-       <button id="stopBtn" class="full btn-bad" style="min-height:56px">発券を停止する</button>`;
+       <button id="stopBtn" class="full btn-bad">発券を停止する</button></details>`;
   if ($('stopBtn')) $('stopBtn').onclick = () => {
     const w = list.filter(isActive).length;
     if (w > 0 && !confirm(`整理券を持っている組が、まだ${w}組います。停止しますか？`)) return;
-    counter().set({ closed: true, closedReason: $('stopReason').value.trim(), reopenAt: $('reopenAt').value.trim() }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
+    saveCfg({ closed: true, closedReason: $('stopReason').value.trim(), reopenAt: $('reopenAt').value.trim() });
   };
-  if ($('reopenBtn')) $('reopenBtn').onclick = () => counter().set({ closed: false }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
-  const wOn = cfg.showWait !== false;
-  $('waitBox').innerHTML = `<div style="font-weight:800">お客さん画面の待ち時間表示：${wOn ? 'オン' : 'オフ'}</div><div style="font-size:14px;color:#5a6378">オフにすると、「約○分」「○時ごろ」の目安を出さず、「あと○組」だけを表示します。</div><button id="waitBtn" class="full ${wOn ? '' : 'btn-ok'}" style="min-height:52px">${wOn ? '待ち時間を非表示にする' : '待ち時間を表示する'}</button>`;
-  $('waitBtn').onclick = () => counter().set({ showWait: !wOn }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
-  const mOn = cfg.multiTicket !== false;
-  $('multiBox').innerHTML = `<div style="font-weight:800">待機中でも新しい整理券を発行できる：${mOn ? 'オン' : 'オフ'}</div><div style="font-size:14px;color:#5a6378">オンの間は、お客さん画面の下に「別の整理券を発行する」が出ます（動作確認用）。本番では、オフにしてください。</div><button id="multiBtn" class="full ${mOn ? '' : 'btn-ok'}" style="min-height:52px">${mOn ? 'オフにする' : 'オンにする'}</button>`;
-  $('multiBtn').onclick = () => counter().set({ multiTicket: !mOn }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
-  $('resetIn').value = ''; $('resetBtn').disabled = true;
-  $('menu').hidden = false;
-};
+  if ($('reopenBtn')) $('reopenBtn').onclick = () => saveCfg({ closed: false });
+  const wOn = cfg.showWait !== false, mOn = cfg.multiTicket !== false;
+  $('custBox').innerHTML = switchRow('waitSw', '待ち時間を表示する', 'オフにすると「約○分」「○時ごろ」を出さず、「あと○組」だけを表示します。', wOn)
+    + switchRow('multiSw', '待機中でも別の整理券を発行できる', '動作確認用です。本番ではオフにしてください。', mOn);
+  $('waitSw').onclick = () => saveCfg({ showWait: !wOn });
+  $('multiSw').onclick = () => saveCfg({ multiTicket: !mOn });
+}
+$('gearBtn').onclick = () => { renderMenu(); $('resetIn').value = ''; $('resetBtn').disabled = true; $('menu').hidden = false; };
 $('menuClose').onclick = $('menuClose2').onclick = () => { $('menu').hidden = true; };
 $('resetIn').oninput = () => { $('resetBtn').disabled = $('resetIn').value.trim() !== 'リセット'; };
 async function deleteTickets(filter) {
@@ -610,7 +640,7 @@ auth.onAuthStateChanged(u => {
 function startWatch() {
   if (unsub) unsub(); if (unsubCnt) unsubCnt();
   unsub = watchTickets((l, cached) => { list = l; cachedSince = cached ? (cachedSince || Date.now()) : 0; updateOffline(); render(); });
-  unsubCnt = counter().onSnapshot(d => { cfg = d.exists ? d.data() : {}; render(); });
+  unsubCnt = counter().onSnapshot(d => { cfg = d.exists ? d.data() : {}; render(); if (!$('menu').hidden) renderMenu(); });
 }
 // 別のアプリから戻ったときや、通信が復活したときは、つなぎ直して最新の状態を取り直す
 document.addEventListener('visibilitychange', () => { if (!document.hidden && auth.currentUser) startWatch(); });
