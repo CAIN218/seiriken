@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=38"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=39"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -14,12 +14,14 @@
   <div id="offline" class="offline" hidden>オフラインです（通信が切れています）。操作が反映されない場合があります。</div>
   <div class="topbar"><div class="inner">
     <div class="who-row"><span class="hico"><button id="paperBtn" class="paperbtn">紙で発券</button><button id="walkBtn" class="paperbtn">人数を記録</button></span><span class="hico"><button id="histBtn" class="ico">履歴</button><button id="gearBtn" class="ico">設定</button><button id="userBtn" class="usrbtn" aria-label="アカウント"><span id="userName"></span></button></span></div>
-    <button id="callNext" class="call btn-main">次の組を呼ぶ</button>
+    <div class="nextcard"><div class="hd2"><span>次の順番</span><span id="ncWait"></span></div>
+      <div class="big"><b id="ncNum">-</b><span id="ncName"></span></div>
+      <div class="track" id="track" role="button" tabindex="0" aria-label="右へスライドして、次の組を呼ぶ"><i id="knob">›</i><span id="trackTxt">右へスライドして呼ぶ</span></div></div>
     <div class="stats" id="stats"></div>
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v38</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v39</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -100,7 +102,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=38"></script><script src="common.js?v=38"></script>
+<script src="firebase-config.js?v=39"></script><script src="common.js?v=39"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -232,11 +234,15 @@ function render() {
   const room = list.filter(inRoom).sort((a, b) => calledAtOf(a) - calledAtOf(b));
   const line = list.filter(inLine).sort(byOrder);
   const done = list.filter(isDone).sort((a, b) => (b.enteredAt || 0) - (a.enteredAt || 0));
-  $('callNext').disabled = !line.length;
-  $('callNext').textContent = line.length ? `次の組を呼ぶ（${nm(line[0])}）` : '呼び出せる組はありません';
+  const nx = line[0];
+  $('ncWait').textContent = `待ち ${line.length}組`;
+  $('ncNum').textContent = nx ? nm(nx) : '-';
+  $('ncName').textContent = nx ? (nx.queue ? '列の組（呼ぶとそのまま入室済み）' : `${nx.name || ''}　${nx.people}名`) : '';
+  $('trackTxt').textContent = nx ? '右へスライドして呼ぶ' : '呼び出せる組はありません';
+  $('track').classList.toggle('off', !nx);
   const nBad = list.filter(isInvalid).length;
   const doneP = done.reduce((a, t) => a + (t.people || 0), 0);
-  $('stats').innerHTML = `<div class="sc"><small>待ち</small><b>${line.length}</b><i>組</i></div><div class="sc"><small>呼び出し中</small><b>${room.length}</b><i>組</i></div><div class="sc"><small>入室済み</small><b>${doneP}</b><i>人</i></div><button id="statBad" class="sc"><small>無効</small><b>${nBad}</b><i>組</i></button>`;
+  $('stats').innerHTML = `<span class="chip2">呼び出し中 <b>${room.length}</b>組</span><span class="chip2">入室済み <b>${doneP}</b>人</span><button id="statBad" class="chip2">無効 <b>${nBad}</b>組</button>`;
   $('statBad').onclick = () => { hFilter = 'bad'; $('hq').value = ''; $('hist').hidden = false; renderHist(); };
   $('stopNote').innerHTML = cfg.closed ? `<div class="notice stop">発券を停止中${cfg.closedReason ? '：' + esc(cfg.closedReason) : ''}</div>` : '';
   document.body.style.background = cfg.closed ? '#f3e4e4' : '';
@@ -312,7 +318,17 @@ document.addEventListener('pointerdown', e => {
 });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => document.addEventListener(ev, () => { if (holdEl) endHold(); }, true));
 document.addEventListener('contextmenu', e => { if (e.target.closest('[data-hold]')) e.preventDefault(); });
-$('callNext').onclick = callNext;
+// 次の組を呼ぶ：つまみを右までなぞると確定する（押し間違い防止）。Enter・スペースでも呼べる
+(() => {
+  const tr = $('track'), kn = $('knob'); let sx = 0, x = 0, max = 1, on = false;
+  const set = v => { x = Math.max(0, Math.min(max, v)); kn.style.transform = `translateX(${x}px)`; tr.style.setProperty('--p', max ? x / max : 0); };
+  const back = () => { kn.style.transition = 'transform .25s ease'; set(0); setTimeout(() => { kn.style.transition = ''; }, 260); };
+  kn.onpointerdown = e => { if (tr.classList.contains('off')) return; on = true; sx = e.clientX; max = tr.clientWidth - kn.offsetWidth - 8; kn.style.transition = ''; kn.setPointerCapture(e.pointerId); e.preventDefault(); };
+  kn.onpointermove = e => { if (on) set(e.clientX - sx); };
+  const end = () => { if (!on) return; on = false; if (x >= max * 0.85) { set(max); callNext(); setTimeout(back, 350); } else back(); };
+  kn.onpointerup = end; kn.onpointercancel = end;
+  tr.onkeydown = e => { if ((e.key === 'Enter' || e.key === ' ') && !tr.classList.contains('off')) { e.preventDefault(); callNext(); } };
+})();
 
 /* ---------- 入口確認 ---------- */
 function openCheck(num) { $('check').hidden = false; $('chkIn').value = num || ''; renderCheck(); if (!num) setTimeout(() => $('chkIn').focus(), 50); }

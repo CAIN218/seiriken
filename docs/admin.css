@@ -181,3 +181,38 @@ button.sc{min-height:58px;padding:4px 2px;cursor:pointer;touch-action:manipulati
 .box.danger{border:2px solid #f0caca}
 .ico,.paperbtn,.usrbtn{white-space:nowrap}
 @media(max-width:380px){.paperbtn{font-size:12px;padding:0 7px}.ico{padding:0 8px;font-size:13px}#userName{max-width:48px}}
+
+/* v39 スタッフ画面の見た目（案C：スライドで呼ぶ） */
+:root{--fg:#1f2140;--sub:#62658a;--line:#e3e4f1;--bg:#f6f6fb;--accent:#6b50d6;--ok:#3b8f6a;--okbg:#dff2e8;--bad:#b04a63;--badbg:#fbe6ec;--warn:#6b50d6}
+body{font-family:"Zen Maru Gothic",system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif}
+.topbar{border-bottom:0;box-shadow:none;padding-bottom:6px}
+button{border-width:0;background:#e9eafa;color:var(--fg)}
+.btn-main{background:var(--accent);color:#fff}
+.btn-ok{background:var(--ok);color:#fff}.btn-bad{background:var(--bad);color:#fff}.btn-warn{background:#8a6bd6;color:#fff}
+.mini.ok{background:var(--ok)}
+.paperbtn,.ico,.usrbtn{background:#e9eafa}
+.nextcard{margin-top:8px;background:#fff;border-radius:22px;padding:10px 14px 12px;box-shadow:0 8px 24px rgba(60,50,140,.12)}
+.nextcard .hd2{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:800;color:var(--sub)}
+.nextcard .big{display:flex;align-items:baseline;gap:10px;margin:0 0 8px;min-width:0}
+.nextcard .big b{font-family:"DM Sans","Zen Maru Gothic",sans-serif;font-size:50px;line-height:1.05;font-weight:800;font-variant-numeric:tabular-nums}
+.nextcard .big span{font-weight:800;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track{--p:0;position:relative;height:56px;border-radius:99px;background:#e7e3fb;color:#5a45c0;font-weight:900;font-size:16px;display:flex;align-items:center;justify-content:center;padding-left:48px;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none}
+.track span{opacity:calc(1 - var(--p) * 1.4)}
+.track i{position:absolute;left:4px;top:4px;width:48px;height:48px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-style:normal;font-size:28px;font-weight:800;touch-action:none;cursor:grab;will-change:transform}
+.track.off{background:#eceef4;color:#9a9db5}.track.off i{background:#c3c6d6;pointer-events:none}
+.track:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.stats{display:flex;gap:6px;margin-top:8px;flex-wrap:nowrap;justify-content:stretch}
+.chip2{flex:1;background:#fff;border-radius:99px;padding:6px 4px;text-align:center;font-size:12.5px;font-weight:800;color:var(--sub);white-space:nowrap;min-height:0;border:0;font-family:inherit}
+.chip2 b{color:var(--fg);font-family:"DM Sans","Zen Maru Gothic",sans-serif;font-size:16px;font-weight:800}
+button.chip2{cursor:pointer}
+h2{border-left:0;padding-left:4px;font-size:14px;color:var(--sub)}
+.row,.row.waiting,.row.called,.row.inroom{border:0;background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(60,50,140,.08)}
+.row.called{background:#efeafd}
+.row.late{background:#fde8ee}
+.row .num{font-family:"DM Sans","Zen Maru Gothic",sans-serif;font-weight:800}
+.pill.called{background:#e3dcfb;color:#4d37b8}
+.pill.waiting{background:#e4eaf6;color:#35518a}
+.pill.inroom{background:var(--okbg);color:var(--ok)}
+.dh{background:#eceefb}
+.box,.sheet{--card:#fff}
+.sw.on{background:var(--ok)}
