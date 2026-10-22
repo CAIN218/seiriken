@@ -142,3 +142,10 @@ h2{font-size:18px;color:var(--fg);border-left:6px solid var(--line);padding-left
   .row .num{font-size:34px}
   .rsub .el{font-size:18px}
 }
+
+/* 人数の記録・複数枚の発券 */
+.toast{z-index:60}
+.pseg .pn,.pseg input{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;font-variant-numeric:tabular-nums}
+.pseg .pn small{font-size:16px;margin-left:2px}
+.pseg button{flex:0 0 72px}
+.pseg input{width:auto}

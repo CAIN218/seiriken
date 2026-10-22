@@ -8,6 +8,9 @@ const CALL_TIMEOUT_SEC = window.CALL_TIMEOUT_SEC || 300;
 const DEFAULT_GAP_SEC = window.DEFAULT_GAP_SEC || 180;
 const ALERT_MIN = window.ALERT_MIN || 5;
 
+// 2人1組で1枚。余りは1人の券（3人 → 2名と1名の2枚）
+const splitPeople = n => { const a = []; for (let r = n; r > 0; r -= 2) a.push(Math.min(2, r)); return a; };
+
 function today() {
   const d = new Date(Date.now() + 9 * 3600 * 1000); // JST
   return d.toISOString().slice(0, 10);

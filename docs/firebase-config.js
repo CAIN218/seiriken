@@ -14,6 +14,3 @@ window.DEFAULT_GAP_SEC = 180;
 window.ALERT_MIN = 5;
 // 整理券の上に出す名前
 window.EVENT_TITLE = 'ジュラシックス・パーク';
-// 画面を閉じていても届く通知を送るサーバー（Cloudflare Workers）のURL。未設定（空）のあいだは、この機能は画面に出ません。
-// 設定の手順は、リポジトリの push-worker/SETUP.md を見てください。例：'https://seiriken-push.あなたの名前.workers.dev'
-window.PUSH_WORKER_URL = '';

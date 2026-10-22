@@ -1,17 +1,17 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="customer.css?v=36"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="customer.css?v=37"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=36"></script><script src="push-store.js?v=36"></script><script src="common.js?v=36"></script>
+<script src="firebase-config.js?v=37"></script><script src="common.js?v=37"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
-let myId = null, people = 1, nick = '', formErr = '', busy = false;
-let me = null, sum = {}, cfg = {}, st = {}, unsubMe = null, dragging = false, pending = false;
-try { myId = localStorage.getItem(KEY) || new URLSearchParams(location.search).get('t'); nick = localStorage.getItem('seiriken-nick') || ''; } catch (e) {}
+let myIds = [], people = 1, nick = '', formErr = '', busy = false;
+let me = null, sum = {}, cfg = {}, dragging = false, pending = false;
+try { myIds = (localStorage.getItem(KEY) || new URLSearchParams(location.search).get('t') || '').split(',').filter(Boolean); nick = localStorage.getItem('seiriken-nick') || ''; } catch (e) {}
 const app = document.getElementById('app');
 const line = () => sum.line || [];
 const showWait = () => cfg.showWait !== false;
@@ -21,128 +21,77 @@ const fmtHMS = ms => new Date(ms).toLocaleTimeString('ja-JP', { hour12: false })
 // 戻ってきてほしい時刻（5分単位の目安）
 function etaText(ahead) { const t = Date.now() + (ahead + 1) * gapSec() * 1000; return fmtHM(new Date(Math.round(t / 300000) * 300000)); }
 
-/* ---------- 音・振動 ---------- */
-let actx = null, ringTimer = null, ringSilenced = false;
-const audioOn = () => !!actx && actx.state === 'running';
-// 音が実際に鳴る状態かどうかで、通知ボタンの表示を切り替える
-function updNotif() {
-  const b = document.getElementById('notif'); if (!b) return;
-  b.textContent = audioOn() ? '音はオンです（タップで音を確認）' : '音をオンにする';
-  b.className = audioOn() ? 'btn sub' : 'btn';
-}
-function ensureAudio() {
-  try {
-    if (!actx) { actx = new (window.AudioContext || window.webkitAudioContext)(); actx.addEventListener('statechange', updNotif); }
-    if (actx.state !== 'running') return actx.resume().then(updNotif, () => {});
-  } catch (e) {}
-  return Promise.resolve();
-}
-document.addEventListener('pointerdown', ensureAudio, { passive: true });
-function beep(n) {
-  if (!actx) return;
-  for (let i = 0; i < n; i++) {
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.connect(g); g.connect(actx.destination); o.frequency.value = i % 2 ? 660 : 880; g.gain.value = 0.3;
-    const t = actx.currentTime + i * 0.28; o.start(t); o.stop(t + 0.2);
-  }
-}
-const vibrate = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
-function note(title, body) { try { if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body }); } catch (e) {} }
-function ring() { if (ringSilenced) return; beep(3); vibrate([400, 150, 400, 150, 400]); }
-function startRing() { stopRing(); ringSilenced = false; ring(); ringTimer = setInterval(ring, 3000); }
-function stopRing() { if (ringTimer) { clearInterval(ringTimer); ringTimer = null; } }
-// 呼び出し中は、画面のどこをタップしても音が止まる
-document.addEventListener('pointerdown', () => { if (ringTimer) ringSilenced = true; }, { passive: true });
-
-/* ---------- 画面を閉じていても届く通知（Web Push） ---------- */
-const PUSH_URL = (window.PUSH_WORKER_URL || '').replace(/\/$/, '');
-const pushOk = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const isStandalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
-let pushState = 'unknown', lastSynced = null;
-const b64uBytes = str => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(str.length / 4) * 4, '=')), c => c.charCodeAt(0));
-async function refreshPushState() {
-  if (!PUSH_URL) pushState = 'hidden';
-  else if (isIOS && !isStandalone) pushState = 'needInstall';
-  else if (!pushOk) pushState = 'hidden';
-  else if (Notification.permission === 'denied') pushState = 'denied';
-  else {
-    try { const reg = await navigator.serviceWorker.getRegistration(); const sub = reg && await reg.pushManager.getSubscription(); pushState = sub && Notification.permission === 'granted' ? 'on' : 'off'; if (sub) syncPush(sub); }
-    catch (e) { pushState = 'off'; }
-  }
-  render();
-}
-// 今の整理券と、この端末の通知の宛先を結びつける
-async function syncPush(sub) {
-  if (!myId || !sub || lastSynced === myId) return;
-  lastSynced = myId;
-  try { await idbSet('ticketId', myId); await db.collection('pushSubs').doc(myId).set({ endpoint: sub.endpoint, day: today(), createdAt: Date.now() }); }
-  catch (e) { lastSynced = null; }
-}
-async function enablePush() {
-  try {
-    ensureAudio();
-    if ((await Notification.requestPermission()) !== 'granted') return refreshPushState();
-    const reg = await navigator.serviceWorker.register('sw.js'); await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      const key = (await (await fetch(PUSH_URL + '/vapid')).text()).trim();
-      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uBytes(key) });
-    }
-    lastSynced = null; await syncPush(sub);
-    reg.showNotification('通知を受け取れるようになりました', { body: '画面を閉じていても、順番が来たらお知らせします。', icon: 'icon-192.png' });
-  } catch (e) { alert('通知をオンにできませんでした：' + (e && e.message ? e.message : e)); }
-  refreshPushState();
-}
-const pushUi = () => {
-  if (pushState === 'on') return '<div class="small c">画面を閉じていても、通知が届きます</div>';
-  if (pushState === 'off') return '<button class="btn" id="pushBtn">画面を閉じていても通知を受け取る</button>';
-  if (pushState === 'denied') return '<div class="small c">通知がブロックされています。ブラウザの設定で、このサイトの通知を許可してください。</div>';
-  if (pushState === 'needInstall') return '<div class="card small"><b>画面を閉じていても通知を受け取るには（iPhone）</b><br>①下の共有ボタンを押す　②「ホーム画面に追加」を押す　③ホーム画面にできたアイコンから開き直す<br>（今の整理券は、そのまま引き継がれます）</div>';
-  return '';
-};
-if (PUSH_URL && pushOk && !(isIOS && !isStandalone)) navigator.serviceWorker.register('sw.js').catch(() => {});
+const vibrate = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }; // 半券をなぞるときの手ごたえだけに使う
 
 /* ---------- データ ---------- */
+const MAX_PEOPLE = 8;
+let mine = {}, selId = null, sig = '', unsubsMe = [];
+function saveIds() {
+  try {
+    const u = new URL(location.href);
+    if (myIds.length) { localStorage.setItem(KEY, myIds.join(',')); u.searchParams.set('t', myIds.join(',')); }
+    else { localStorage.removeItem(KEY); u.searchParams.delete('t'); }
+    history.replaceState(null, '', u);
+  } catch (e) {}
+}
+// 画面に出す券：呼び出し中があればそれ、なければ順番待ちの先頭。券の状態が変わったら、自分で選んだ券より優先して切り替える
+function pickMe() {
+  const ts = myIds.map(id => mine[id]).filter(Boolean);
+  const s = ts.map(t => t.id + t.status).join();
+  if (s !== sig) { sig = s; selId = null; }
+  me = (selId && mine[selId]) || ts.find(t => t.status === 'called') || ts.find(t => t.status === 'waiting') || ts[0] || null;
+}
 function subMe() {
-  if (unsubMe) { unsubMe(); unsubMe = null; }
-  if (!myId) { me = null; render(); return; }
-  const id = myId;
-  unsubMe = db.collection('tickets').doc(id).onSnapshot({ includeMetadataChanges: true }, d => {
-    okSnap(d);
-    if (!d.exists) { try { localStorage.removeItem(KEY); } catch (e) {} myId = null; me = null; st = {}; }
-    else { try { const u = new URL(location.href); if (u.searchParams.get('t') !== id) { u.searchParams.set('t', id); history.replaceState(null, '', u); } } catch (e) {} me = { id, ...d.data() }; if (me.status === 'arrived') me.status = 'inroom'; if (me.status === 'skipped') me.status = 'called'; }
-    render();
+  unsubsMe.forEach(u => u()); unsubsMe = [];
+  if (!myIds.length) { me = null; render(); return; }
+  myIds.slice().forEach(id => {
+    unsubsMe.push(db.collection('tickets').doc(id).onSnapshot({ includeMetadataChanges: true }, d => {
+      okSnap(d);
+      if (!d.exists) { delete mine[id]; myIds = myIds.filter(x => x !== id); saveIds(); }
+      else { const t = { id, ...d.data() }; if (t.status === 'arrived') t.status = 'inroom'; if (t.status === 'skipped') t.status = 'called'; mine[id] = t; }
+      pickMe(); render();
+    }));
   });
 }
 async function issue() {
   const name = nick.trim().slice(0, 12);
   if (!name) { formErr = 'ニックネームを入力してください'; render(); return; }
   if (busy) return; busy = true; formErr = ''; render();
+  const parts = splitPeople(people);
   const ref = db.collection('counters').doc(today());
-  const newRef = db.collection('tickets').doc();
+  const refs = parts.map(() => db.collection('tickets').doc());
   try {
     await db.runTransaction(async tx => {
       const c = await tx.get(ref);
       if (c.exists && c.data().closed) throw new Error('closed');
-      const n = (c.exists ? c.data().last || 0 : 0) + 1;
-      tx.set(ref, { last: n }, { merge: true });
-      const t = { day: today(), number: n, name, people, status: 'waiting', createdAt: Date.now() };
-      if (TEST) t.test = true;
-      tx.set(newRef, t);
+      const n0 = c.exists ? c.data().last || 0 : 0;
+      tx.set(ref, { last: n0 + parts.length }, { merge: true });
+      parts.forEach((p, i) => {
+        const t = { day: today(), number: n0 + 1 + i, name, people: p, status: 'waiting', createdAt: Date.now() };
+        if (TEST) t.test = true;
+        tx.set(refs[i], t);
+      });
     });
-    myId = newRef.id;
-    try { localStorage.setItem(KEY, myId); localStorage.setItem('seiriken-nick', name); } catch (e) {}
-    busy = false; lastSynced = null; subMe(); refreshPushState();
+    myIds = refs.map(r => r.id); mine = {}; selId = null; sig = '';
+    try { localStorage.setItem('seiriken-nick', name); } catch (e) {}
+    saveIds(); busy = false; subMe();
   } catch (err) {
     busy = false; formErr = err.message === 'closed' ? 'ただいま整理券を発行できません' : '整理券を発行できませんでした。もう一度お試しください'; render();
   }
 }
-function leave() { try { localStorage.removeItem(KEY); const u = new URL(location.href); u.searchParams.delete('t'); history.replaceState(null, '', u); } catch (e) {} myId = null; me = null; st = {}; stopRing(); subMe(); }
+function leave() { myIds = []; mine = {}; selId = null; sig = ''; saveIds(); me = null; subMe(); }
+const allEnded = () => myIds.map(id => mine[id]).filter(Boolean).every(t => ['inroom', 'guided', 'cancelled', 'absent'].includes(t.status));
 
 /* ---------- 画面 ---------- */
-const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div></div></div>`; };
-const notifyBtn = () => `<button class="btn ${audioOn() ? 'sub' : ''}" id="notif">${audioOn() ? '音はオンです（タップで音を確認）' : '音をオンにする'}</button><div class="small c" id="vibNote">iPhoneでは振動しません。この画面を開いたままにしてください。</div>`;
+const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${tabsHtml()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div></div></div>`; };
+const tabState = t => ({ called: '呼び出し中', waiting: '順番待ち', inroom: '入室済み', guided: '入室済み', cancelled: 'キャンセル', absent: '無効' })[t.status] || '';
+// 3人以上のときは、2人1組ずつ別の整理券になる。券を切り替えるタブ
+const tabsHtml = () => {
+  const ts = myIds.map(id => mine[id]).filter(Boolean);
+  if (ts.length < 2) return '';
+  return `<div class="tabs-note">整理券は${ts.length}枚あります。呼ばれた券から、順にもぎってください。</div><div class="tabs">${ts.map(t => `<button data-tab="${t.id}" class="${me && me.id === t.id ? 'on' : ''}"><b>${t.number}番</b><small>${t.people}名・${tabState(t)}</small></button>`).join('')}</div>`;
+};
+const againBtn = () => allEnded() ? '<button class="btn sub" id="again">新しい整理券を発行する</button>' : '';
 const cancelBtn = () => '<div class="c"><button class="linkbtn" id="cancel">整理券をキャンセルする</button></div>';
 // 半券：整理券番号の控え。同じ見た目の層を2枚重ね、指より左（もう破れた側）を左の層に見せる
 const stubPaper = hint => `<div class="sp"><div class="sp-row"><span class="sp-lab">半券</span><span class="sp-num">${me.number}番</span></div>${hint ? `<div class="sp-hint">${hint}</div>` : ''}</div>`;
@@ -165,9 +114,11 @@ function viewIssue() {
   return shell('none', head + `<div class="tk"><div class="tk-main full">${tkHead}
       <div class="lab" style="margin-top:10px;text-align:left">ニックネーム（12文字まで）</div>
       <input class="field" id="nick" maxlength="12" placeholder="例：たろう" value="${esc(nick)}" autocomplete="off">
-      <div class="lab" style="margin-top:10px;text-align:left">人数</div><div class="seg" style="margin-top:8px"><button data-p="1" class="${people === 1 ? 'on' : ''}">1人</button><button data-p="2" class="${people === 2 ? 'on' : ''}">2人</button></div>
+      <div class="lab" style="margin-top:10px;text-align:left">人数</div>
+      <div class="step"><button data-pd="-1" aria-label="1人減らす" ${people <= 1 ? 'disabled' : ''}>−</button><div class="sn">${people}<small>人</small></div><button data-pd="1" aria-label="1人増やす" ${people >= MAX_PEOPLE ? 'disabled' : ''}>＋</button></div>
+      <div class="small c" style="margin-top:6px">${people <= 2 ? '整理券は1枚です' : `2人1組で1枚です。整理券は${splitPeople(people).length}枚になります（${splitPeople(people).join('名・')}名）`}</div>
       ${formErr ? `<div class="err c" style="margin-top:8px">${esc(formErr)}</div>` : ''}</div></div>`,
-    `<button class="btn" id="issue" ${busy ? 'disabled' : ''}>${busy ? '発行しています…' : '整理券を発行する'}</button>`);
+    `<button class="btn" id="issue" ${busy ? 'disabled' : ''}>${busy ? '発行しています…' : people > 2 ? `整理券を${splitPeople(people).length}枚発行する` : '整理券を発行する'}</button>`);
 }
 
 function viewTicket() {
@@ -182,63 +133,47 @@ function viewTicket() {
     return shell('call', `<div class="h1 c" id="hd" style="font-size:clamp(24px,7.4vw,34px)">待機室へお越しください</div>
       <div class="tk call">${body()}${perf(true)}<div class="tk-stub">${stubHtml(true)}</div></div>
       ${tearErr ? '<div class="err c" id="tearErr">通信できませんでした。もう一度なぞってください</div>' : ''}`,
-      `<div class="small c">待機室で、丸いつまみから右へなぞって半券をもぎり、スタッフにこの画面をお見せください。画面をタップすると音が止まります。</div>`);
+      `<div class="small c">待機室で、丸いつまみから右へなぞって半券をもぎり、スタッフにこの画面をお見せください。</div>`);
   }
   if (me.status === 'inroom' || me.status === 'guided') {
     return shell('in', `<div class="h1 c" style="font-size:clamp(24px,7.4vw,34px)">入室しました</div>
       <div class="tk in"><div class="tk-main cut"><div class="stamp">入室済み</div>${tkHead}<div class="tk-num">${me.number}</div><div class="tk-who">${ppl}</div></div><div class="tk-perf"><div class="zig"></div></div></div>
       <div class="tk-times c"><div><span>入室</span><b>${me.enteredAt ? fmtHMS(me.enteredAt) : ''}</b></div><div><span>現在</span><b id="clk"></b></div></div>
       <div class="small c">このあとは、スタッフの案内に従ってください。</div>`,
-      '<button class="btn sub" id="again">新しい整理券を発行する</button>');
+      againBtn());
   }
-  if (me.status === 'cancelled') return shell('end', `<div class="tk"><div class="tk-main full">${tkHead}<div class="tk-num">${me.number}</div><div class="h1 c">キャンセルしました</div></div></div>`, '<button class="btn sub" id="again">新しい整理券を発行する</button>');
-  if (me.status === 'absent') return shell('end', `<div class="tk"><div class="tk-main full">${tkHead}<div class="tk-num">${me.number}</div><div class="h1 c">この整理券は<br>無効になりました</div><p class="p c">ご利用の場合は、スタッフにお声がけください。</p></div></div>`, '<button class="btn sub" id="again">新しい整理券を発行する</button>');
+  if (me.status === 'cancelled') return shell('end', `<div class="tk"><div class="tk-main full">${tkHead}<div class="tk-num">${me.number}</div><div class="h1 c">キャンセルしました</div></div></div>`, againBtn());
+  if (me.status === 'absent') return shell('end', `<div class="tk"><div class="tk-main full">${tkHead}<div class="tk-num">${me.number}</div><div class="h1 c">この整理券は<br>無効になりました</div><p class="p c">ご利用の場合は、スタッフにお声がけください。</p></div></div>`, againBtn());
 
   // 順番待ち（発行したときから、チケットの形で表示する）
   const soon = ahead <= SOON_AHEAD;
   const eta = etaText(ahead);
   const aheadTxt = `あと${ahead + 1}<span class="h1">組</span>`; // あと1組＝次に呼ばれる
   // 呼び出しの順番（先頭の5組だけ表示）
-  const chip = (n, i, me_) => `<span class="oc ${me_ ? 'me' : ''}"><small>${i + 1}番目</small>${n}番</span>`;
+  const chip = (n, i, me_) => `<span class="oc ${me_ ? 'me' : ''}"><small>${i + 1}番目</small>${n > 0 ? n + '番' : '列'}</span>`;
   const chips = li.slice(0, 5).map((n, i) => chip(n, i, n === me.number)).join('');
   const orderRow = idx >= 0 ? `<div class="tk-order"><div class="tk-lab" style="letter-spacing:.1em">呼び出しの順番</div><div class="ocs">${chips}</div><div class="small c" style="margin-top:6px">左から順にお呼びします</div></div>` : '';
   const info = `<div class="tk-eta"><div class="huge" style="font-size:clamp(44px,14vw,64px)">${aheadTxt}</div><div class="p">${soon ? 'まもなくお呼びします' : showWait() ? `目安：${eta}ごろ` : 'この画面でお待ちください'}</div></div>`;
   const top = (soon ? '<div class="h1 c" style="font-size:clamp(22px,6.4vw,30px)">会場の近くでお待ちください</div>' : '')
     + `<div class="tk wait">${body(info + orderRow)}${perf(false)}<div class="tk-stub">${stubHtml(false)}</div></div>`
-    + (soon ? '' : `<div class="card p">${showWait() ? eta + 'ごろに、会場へお戻りください。' : ''}この画面を開いたままにしておくと、音でもお知らせします。</div>`);
-  return shell(soon ? 'soon' : 'wait', top, notifyBtn() + pushUi() + cancelBtn());
+    + (soon ? '' : `<div class="card p">${showWait() ? eta + 'ごろに、会場へお戻りください。' : ''}この画面を開いたままお待ちください。順番が来ると、表示が変わります。</div>`);
+  return shell(soon ? 'soon' : 'wait', top, cancelBtn());
 }
 
 function render() {
   if (dragging || (document.activeElement && document.activeElement.id === 'nick')) { pending = true; return; }
-  if (!me) { app.innerHTML = viewIssue(); wire(); stopRing(); return; }
-  // 状態の変化に合わせて音・振動・通知
-  const li = line(), idx = li.indexOf(me.number), ahead = idx >= 0 ? idx : li.filter(n => n < me.number).length;
-  const key = me.status === 'waiting' ? (ahead <= SOON_AHEAD ? 'soon' : 'wait') : me.status;
-  const changed = st.key !== undefined && st.key !== key;
-  if (changed && key === 'soon') { beep(2); vibrate([300, 150, 300]); note('整理券 ' + me.number, 'まもなく順番です。会場の近くでお待ちください'); }
-  if (key === 'called' && (st.key !== 'called')) { startRing(); note('整理券 ' + me.number, '待機室へお越しください'); }
-  if (key !== 'called') stopRing();
-  if (me.status === 'called' && me.reNotifiedAt != null && st.re != null && st.re !== me.reNotifiedAt) { startRing(); note('整理券 ' + me.number, 'お待ちしています。待機室へお越しください'); }
-  st.re = me.reNotifiedAt != null ? me.reNotifiedAt : null; st.key = key;
+  if (!me) { app.innerHTML = myIds.length ? '<div class="scr"><p class="c small">読み込み中…</p></div>' : viewIssue(); wire(); return; }
   app.innerHTML = viewTicket();
-  document.title = key === 'called' ? '【待機室へお越しください】整理券' : '整理券';
+  document.title = me.status === 'called' ? '【待機室へお越しください】整理券' : '整理券';
   wire(); tick();
 }
 
 function wire() {
   const $ = id => document.getElementById(id);
   if ($('nick')) { $('nick').oninput = e => { nick = e.target.value; }; $('nick').onblur = () => { if (pending && !dragging) { pending = false; setTimeout(render, 0); } }; }
-  document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { people = +b.dataset.p; render(); });
-  if ($('issue')) $('issue').onclick = () => { ensureAudio(); issue(); };
-  if ($('notif')) $('notif').onclick = async () => {
-    await ensureAudio(); beep(2); updNotif();
-    // 振動の確認（対応していない端末では、その旨を表示する）
-    let vib = false; try { vib = !!(navigator.vibrate && navigator.vibrate([250, 120, 250])); } catch (e) {}
-    const vn = document.getElementById('vibNote');
-    if (vn) vn.textContent = vib ? '振動しましたか？ しない場合は、スマホの設定で、振動やマナーモードを確認してください。' : 'この端末のブラウザは、振動に対応していません（iPhoneなど）。音でお知らせします。';
-    try { if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {}
-  };
+  document.querySelectorAll('[data-pd]').forEach(b => b.onclick = () => { people = Math.max(1, Math.min(MAX_PEOPLE, people + +b.dataset.pd)); render(); });
+  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { selId = b.dataset.tab; pickMe(); render(); });
+  if ($('issue')) $('issue').onclick = issue;
   if ($('cancel')) $('cancel').onclick = () => {
     if (!confirm('整理券をキャンセルします。\nよろしいですか？（元には戻せません）')) return;
     const ref = db.collection('tickets').doc(me.id), now = Date.now();
@@ -247,7 +182,6 @@ function wire() {
       .catch(() => ref.update({ status: 'cancelled', cancelledAt: now }))
       .catch(() => alert('キャンセルできませんでした。もう一度お試しください'));
   };
-  if ($('pushBtn')) $('pushBtn').onclick = enablePush;
   if ($('refresh')) $('refresh').onclick = () => { subAll(); };
   if ($('again')) $('again').onclick = leave;
   if ($('another')) $('another').onclick = () => { if (confirm('この端末に表示している整理券を外して、新しい整理券を発行します。\n今の整理券は、順番待ちの列に残ります。')) leave(); };
@@ -309,7 +243,7 @@ async function tear(tk, h) {
     stampEl.remove(); tk.classList.remove('ripped', 'fin', 'in', 'shake', 'tdrag'); tk.classList.add('call', 'back');
     tk.style.setProperty('--p', 0); h.style.transform = ''; h.style.transition = ''; h.style.opacity = '';
     if (hd) hd.textContent = '待機室へお越しください';
-    document.body.className = 'st-call'; startRing();
+    document.body.className = 'st-call';
     if (!document.getElementById('tearErr')) tk.insertAdjacentHTML('afterend', TEAR_ERR);
     setTimeout(() => tk.classList.remove('back'), 400);
     pending = false;
@@ -324,7 +258,7 @@ async function tear(tk, h) {
     return false;
   }
   tearErr = false; const old = document.getElementById('tearErr'); if (old) old.remove();
-  stopRing(); vibrate([60, 40, 90]);
+  vibrate([60, 40, 90]);
   const reduce = reduceMotion();
   let failed = false;
   const save = db.collection('tickets').doc(me.id).update({ status: 'inroom', enteredAt: Date.now(), torn: true });
@@ -371,5 +305,4 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) subA
 addEventListener('pageshow', e => { if (e.persisted) subAll(); });
 addEventListener('online', subAll);
 subAll();
-refreshPushState();
 </script></body></html>
