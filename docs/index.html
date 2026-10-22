@@ -321,9 +321,11 @@ function netUpdate() {
 }
 setInterval(netUpdate, 1000);
 addEventListener('offline', () => { if (!offSince) offSince = Date.now(); netUpdate(); });
-// C: 生存確認の時刻を2分ごとに読む（呼び出し待ちの券があるときだけ。1回の読み取りで済む）
+// C: 生存確認の時刻を5分ごとに読む（呼び出し中か、あと少しの券があるときだけ。1回の読み取りで済む）
 async function pollStaff() {
-  if (document.hidden || !myIds.some(id => mine[id] && ['waiting', 'called'].includes(mine[id].status))) { staffStale = 0; return; }
+  // 呼び出し中か、前に3組以内の券があるときだけ読む（後ろの方で待つ人は読まない＝読み取りの節約）
+  const near = myIds.some(id => { const t = mine[id]; if (!t) return false; if (t.status === 'called') return true; const i = line().indexOf(t.number); return t.status === 'waiting' && i >= 0 && i <= 3; });
+  if (document.hidden || !near) { staffStale = 0; return; }
   try {
     const d = await heartbeatRef().get({ source: 'server' });
     const at = d.exists ? d.data().updatedAt : 0, age = Date.now() - at;
@@ -331,7 +333,7 @@ async function pollStaff() {
   } catch (e) { /* 通信できないときはAの警告に任せる */ }
   netUpdate();
 }
-setInterval(pollStaff, 120000); setTimeout(pollStaff, 8000);
+setInterval(pollStaff, 300000); setTimeout(pollStaff, 8000);
 function ackSeen() {
   if (!me || me.status !== 'called' || me.seenAt || me.paper || document.hidden || ackTried[me.id]) return;
   const id = me.id; ackTried[id] = 1;
