@@ -1,13 +1,14 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=43"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=44"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
   <input id="email" type="email" placeholder="メールアドレス" autocomplete="username">
   <input id="pass" type="password" placeholder="パスワード" autocomplete="current-password">
   <button id="loginBtn" class="btn-main full" style="width:100%;min-height:56px">ログイン</button>
+  <div style="text-align:center;margin-top:12px"><a class="cust-link" href="index.html">お客さん用の発行画面へ</a></div>
 </div></div>
 
 <div id="app" hidden>
@@ -22,7 +23,7 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v43</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v44</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -67,6 +68,7 @@
 <div id="acct" class="modal" hidden><div class="sheet">
   <h3>ログイン中のアカウント</h3>
   <div class="box"><div style="font-size:20px;font-weight:800" id="acctName"></div><div style="color:#5a6378" id="acctMail"></div></div>
+  <a class="cust-link btn-like" href="index.html">お客さん用の発行画面を開く</a>
   <button id="logoutBtn" class="full btn-bad" style="min-height:56px">ログアウトする</button>
   <button id="acctClose" class="full" style="min-height:56px">閉じる</button>
 </div></div>
@@ -80,6 +82,7 @@
 
 <div id="menu" class="modal big" hidden><div class="sheet">
   <div class="shead"><h3>設定</h3><button id="menuClose2" class="xbtn">閉じる</button></div>
+  <a class="cust-link btn-like" href="index.html">お客さん用の発行画面を開く</a>
   <h4 class="sec">整理券の発行</h4>
   <div class="box" id="stopBox"></div>
   <h4 class="sec">お客さん画面</h4>
@@ -105,7 +108,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=43"></script><script src="common.js?v=43"></script>
+<script src="firebase-config.js?v=44"></script><script src="common.js?v=44"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
