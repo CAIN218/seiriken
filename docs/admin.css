@@ -230,3 +230,7 @@ h2{border-left:0;padding-left:4px;font-size:14px;color:var(--sub)}
 #hchips{align-items:center}
 .hgl{flex:0 0 100%;font-size:12px;font-weight:800;color:var(--sub);margin-top:6px}
 .hsum{margin-top:8px;font-size:14px;font-weight:800;color:var(--sub);text-align:right}
+
+/* お客さん用の発行画面へのリンク */
+.cust-link{color:var(--accent);font-weight:800;text-decoration:underline}
+.cust-link.btn-like{display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:12px;background:#fff;border:2px solid var(--line);text-decoration:none;margin-bottom:8px;color:var(--fg)}

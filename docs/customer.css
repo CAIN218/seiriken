@@ -195,3 +195,7 @@ body.st-end .tk-band{background:#8a948f}
 .dots s{text-decoration:none;color:var(--sub);font-weight:800}
 .dots em{font-style:normal;background:#2f6b5c;color:#fff;font-weight:800;font-size:13px;border-radius:99px;padding:2px 12px}
 body.st-none .tk-main.full{background:#fff}
+
+/* スタッフ用ログインへの小さなリンク（お客さんの目に付きにくくする） */
+.staffl{margin-top:2px}
+.staffl a{font-size:12px;color:var(--sub);opacity:.7;text-decoration:none;padding:10px 12px;display:inline-block}
