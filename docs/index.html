@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="customer.css?v=40"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=41"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=40"></script><script src="common.js?v=40"></script>
+<script src="firebase-config.js?v=41"></script><script src="common.js?v=41"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -100,10 +100,10 @@ const cancelBtn = () => '<div class="c"><button class="linkbtn" id="cancel">整�
 const stubPaper = hint => `<div class="sp"><div class="sp-row"><span class="sp-lab">半券</span><span class="sp-num">${me.number}番</span></div>${hint ? `<div class="sp-hint">${hint}</div>` : ''}</div>`;
 const stubHtml = enabled => enabled
   ? `<div class="slw r"><div class="sl">${stubPaper('受付でもぎってください')}</div></div><div class="slw l"><div class="sl">${stubPaper('受付でもぎってください')}</div></div>`
-  : `<div class="off">${stubPaper('呼ばれたら、ここをなぞってもぎります')}</div>`;
+  : `<div class="off">${stubPaper('')}</div>`;
 
 const usrTag = () => me && me.name ? `<div class="usr">${esc(me.name)}さん</div>` : '';
-const tkHead = `<div class="tk-title">${esc(EVENT_TITLE)}</div><div class="tk-lab">整理券</div><div class="tk-note">待機室までの整理券です</div>`;
+const tkHead = `<div class="tk-band"><span>${esc(EVENT_TITLE)}</span><small>整理券</small></div>`;
 
 function viewIssue() {
   const wc = sum.waitCount || 0, mins = Math.round(wc * gapSec() / 60);
@@ -155,7 +155,8 @@ function viewTicket() {
   // 呼び出しの順番（先頭の5組だけ表示）
   const chip = (n, i, me_) => `<span class="oc ${me_ ? 'me' : ''}"><small>${i + 1}番目</small>${n > 0 ? n + '番' : '列'}</span>`;
   const chips = li.slice(0, 5).map((n, i) => chip(n, i, n === me.number)).join('');
-  const orderRow = idx >= 0 ? `<div class="tk-order"><div class="tk-lab" style="letter-spacing:.1em">呼び出しの順番</div><div class="ocs">${chips}</div><div class="small c" style="margin-top:6px">左から順にお呼びします</div></div>` : '';
+  // 前にいる組を点で見せる（自分は「あなた」）
+  const orderRow = idx >= 0 ? `<div class="dots" aria-label="あなたの前に${idx}組">${'<i></i>'.repeat(Math.min(idx, 8))}${idx > 8 ? '<s>…</s>' : ''}<em>あなた</em></div>` : '';
   const info = `<div class="tk-eta"><div class="huge" style="font-size:clamp(44px,14vw,64px)">${aheadTxt}</div><div class="p">${soon ? 'まもなくお呼びします' : showWait() ? `目安：${eta}ごろ` : 'この画面でお待ちください'}</div></div>`;
   const top = (soon ? '<div class="h1 c" style="font-size:clamp(22px,6.4vw,30px)">会場の近くでお待ちください</div>' : '')
     + `<div class="tk wait">${body(info + orderRow)}${perf(false)}<div class="tk-stub">${stubHtml(false)}</div></div>`

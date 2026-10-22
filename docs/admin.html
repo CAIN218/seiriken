@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=40"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=41"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -22,15 +22,15 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v40</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v41</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
 
 <div id="hist" class="modal big" hidden><div class="sheet">
   <div class="shead"><h3>履歴</h3><button id="hClose2" class="xbtn">閉じる</button></div>
-  <div class="box"><input id="hq" type="text" placeholder="番号またはニックネームで検索" autocomplete="off">
-    <div class="chips" id="hchips"></div></div>
+  <div class="box"><input id="hq" type="text" placeholder="番号（1-a など）かニックネームで検索" autocomplete="off">
+    <div class="chips" id="hchips"></div><div class="hsum" id="hsum"></div></div>
   <div id="hlist"></div>
   <button id="hClose" class="full" style="min-height:56px">閉じる</button>
 </div></div>
@@ -105,7 +105,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=40"></script><script src="common.js?v=40"></script>
+<script src="firebase-config.js?v=41"></script><script src="common.js?v=41"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -249,7 +249,7 @@ function render() {
   const nBad = list.filter(isInvalid).length;
   const doneP = done.reduce((a, t) => a + (t.people || 0), 0);
   $('stats').innerHTML = `<span class="chip2">呼び出し中 <b>${room.length}</b>組</span><span class="chip2">入室済み <b>${doneP}</b>人</span><button id="statBad" class="chip2">無効 <b>${nBad}</b>組</button>`;
-  $('statBad').onclick = () => { hFilter = 'bad'; $('hq').value = ''; $('hist').hidden = false; renderHist(); };
+  $('statBad').onclick = () => { hFilter = 'bad'; hKind = 'all'; $('hq').value = ''; $('hist').hidden = false; renderHist(); };
   $('stopNote').innerHTML = cfg.closed ? `<div class="notice stop">発券を停止中${cfg.closedReason ? '：' + esc(cfg.closedReason) : ''}</div>` : '';
   document.body.style.background = cfg.closed ? '#f3e4e4' : '';
 
@@ -355,18 +355,27 @@ function renderCheck() {
 $('chkIn').oninput = renderCheck; $('chkClose').onclick = () => { $('check').hidden = true; };
 
 /* ---------- 整理券の履歴 ---------- */
-let hFilter = 'all';
-const H_FILTERS = [['all', 'すべて'], ['live', '待ち・呼び出し中'], ['done', '入室済み'], ['bad', '無効']];
+let hFilter = 'all', hKind = 'all', hOld = false;
+const H_FILTERS = [['all', 'すべて'], ['waiting', '順番待ち'], ['called', '呼び出し中'], ['done', '入室済み'], ['bad', '無効'], ['absent', '欠席'], ['cancelled', 'キャンセル']];
+const H_KINDS = [['all', 'すべて'], ['phone', 'スマホ'], ['paper', '紙'], ['queue', '列'], ['walkin', '記録']];
+const kindKey = t => t.queue ? 'queue' : t.walkin ? 'walkin' : t.paper ? 'paper' : 'phone';
 function renderHist() {
   const q = $('hq').value.trim();
-  $('hchips').innerHTML = H_FILTERS.map(([k, n]) => `<button data-f="${k}" class="chip ${hFilter === k ? 'on' : ''}">${n}</button>`).join('');
+  const chips = (arr, cur, attr) => arr.map(([k, n]) => `<button ${attr}="${k}" class="chip ${cur === k ? 'on' : ''}">${n}</button>`).join('');
+  $('hchips').innerHTML = `<div class="hgl">状態</div>${chips(H_FILTERS, hFilter, 'data-f')}<div class="hgl">種類</div>${chips(H_KINDS, hKind, 'data-k')}<div class="hgl">並び</div><button data-o="0" class="chip ${hOld ? '' : 'on'}">新しい順</button><button data-o="1" class="chip ${hOld ? 'on' : ''}">古い順</button>`;
   // 新しい動きがあった順（番号がない列・記録の組も、時刻の位置に入る）
   const lastAt = t => Math.max(t.createdAt || 0, t.calledAt || 0, t.enteredAt || 0, t.absentAt || 0, t.cancelledAt || 0);
-  let ls = list.slice().sort((a, b) => lastAt(b) - lastAt(a) || b.number - a.number);
-  if (hFilter === 'live') ls = ls.filter(t => t.status === 'waiting' || t.status === 'called');
+  let ls = list.slice().sort((a, b) => (lastAt(b) - lastAt(a) || b.number - a.number) * (hOld ? -1 : 1));
+  if (hFilter === 'waiting') ls = ls.filter(t => t.status === 'waiting');
+  if (hFilter === 'called') ls = ls.filter(t => t.status === 'called');
   if (hFilter === 'done') ls = ls.filter(isDone);
   if (hFilter === 'bad') ls = ls.filter(isInvalid);
-  if (q) ls = ls.filter(t => String(t.number) === q.replace(/[^0-9]/g, '') || (t.name || '').includes(q));
+  if (hFilter === 'absent') ls = ls.filter(t => t.status === 'absent');
+  if (hFilter === 'cancelled') ls = ls.filter(t => t.status === 'cancelled');
+  if (hKind !== 'all') ls = ls.filter(t => kindKey(t) === hKind);
+  if (q) { const ql = q.toLowerCase(); ls = ls.filter(t => String(t.number) === q.replace(/[^0-9]/g, '') || nl(t).toLowerCase() === ql || (t.name || '').includes(q)); }
+  const ppl = ls.reduce((a, t) => a + (t.people || 0), 0);
+  $('hsum').textContent = `${ls.length}件・${ppl}人`;
   $('hlist').innerHTML = ls.length ? ls.map(t => `<div class="hrow ${t.status}" data-num="${t.number}">
       <div class="hn">${nl(t)}</div>
       <div class="hm"><div class="who">${label(t)} <span class="pill ${isDone(t) ? 'inroom' : t.status}">${stateName(t)}</span></div><div class="ho">${outline(t)}</div></div>
@@ -377,7 +386,7 @@ $('histBtn').onclick = () => { $('hist').hidden = false; renderHist(); };
 $('hClose').onclick = $('hClose2').onclick = () => { $('hist').hidden = true; };
 $('hq').oninput = renderHist;
 $('hlist').addEventListener('click', e => { const r = e.target.closest('.hrow[data-num]'); if (r && !e.target.closest('button')) openCheck(+r.dataset.num); });
-$('hchips').onclick = e => { const b = e.target.closest('[data-f]'); if (b) { hFilter = b.dataset.f; renderHist(); } };
+$('hchips').onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.f) hFilter = b.dataset.f; else if (b.dataset.k) hKind = b.dataset.k; else if (b.dataset.o) hOld = b.dataset.o === '1'; renderHist(); };
 
 /* ---------- 行をタップして開く操作シート ---------- */
 let sheetId = null;

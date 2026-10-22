@@ -225,3 +225,8 @@ h2{border-left:0;padding-left:4px;font-size:14px;color:var(--sub)}
 .segc button small{display:block;font-size:12px;font-weight:700;color:var(--sub)}
 .segc button.on{border-color:var(--accent);background:#efeafd;color:var(--accent)}
 .segc button.on small{color:var(--accent)}
+
+/* 履歴の絞り込み */
+#hchips{align-items:center}
+.hgl{flex:0 0 100%;font-size:12px;font-weight:800;color:var(--sub);margin-top:6px}
+.hsum{margin-top:8px;font-size:14px;font-weight:800;color:var(--sub);text-align:right}
