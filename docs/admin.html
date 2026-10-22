@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=39"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=40"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -16,12 +16,13 @@
     <div class="who-row"><span class="hico"><button id="paperBtn" class="paperbtn">紙で発券</button><button id="walkBtn" class="paperbtn">人数を記録</button></span><span class="hico"><button id="histBtn" class="ico">履歴</button><button id="gearBtn" class="ico">設定</button><button id="userBtn" class="usrbtn" aria-label="アカウント"><span id="userName"></span></button></span></div>
     <div class="nextcard"><div class="hd2"><span>次の順番</span><span id="ncWait"></span></div>
       <div class="big"><b id="ncNum">-</b><span id="ncName"></span></div>
-      <div class="track" id="track" role="button" tabindex="0" aria-label="右へスライドして、次の組を呼ぶ"><i id="knob">›</i><span id="trackTxt">右へスライドして呼ぶ</span></div></div>
+      <div class="track" id="track" role="button" tabindex="0" aria-label="右へスライドして、次の組を呼ぶ"><i id="knob">›</i><span id="trackTxt">右へスライドして呼ぶ</span></div>
+      <button id="tapCall" class="tapcall btn-main" hidden>次の組を呼ぶ</button></div>
     <div class="stats" id="stats"></div>
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v39</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v40</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -83,6 +84,8 @@
   <div class="box" id="stopBox"></div>
   <h4 class="sec">お客さん画面</h4>
   <div class="box" id="custBox"></div>
+  <h4 class="sec">このスマホの設定</h4>
+  <div class="box" id="devBox"></div>
   <h4 class="sec">列から整理券に切り替える</h4>
   <div class="box"><div class="sdesc">いま列に並んでいる組数と人数を入力すると、番号のない「列」の組として、順番待ちの先頭に入ります。</div><button id="queueBtn" class="full">列の組を入力する</button></div>
   <h4 class="sec">記録</h4>
@@ -102,7 +105,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=39"></script><script src="common.js?v=39"></script>
+<script src="firebase-config.js?v=40"></script><script src="common.js?v=40"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -240,6 +243,9 @@ function render() {
   $('ncName').textContent = nx ? (nx.queue ? '列の組（呼ぶとそのまま入室済み）' : `${nx.name || ''}　${nx.people}名`) : '';
   $('trackTxt').textContent = nx ? '右へスライドして呼ぶ' : '呼び出せる組はありません';
   $('track').classList.toggle('off', !nx);
+  const tapMode = callMode() === 'tap';
+  $('track').hidden = tapMode; $('tapCall').hidden = !tapMode; $('tapCall').disabled = !nx;
+  $('tapCall').textContent = nx ? '次の組を呼ぶ' : '呼び出せる組はありません';
   const nBad = list.filter(isInvalid).length;
   const doneP = done.reduce((a, t) => a + (t.people || 0), 0);
   $('stats').innerHTML = `<span class="chip2">呼び出し中 <b>${room.length}</b>組</span><span class="chip2">入室済み <b>${doneP}</b>人</span><button id="statBad" class="chip2">無効 <b>${nBad}</b>組</button>`;
@@ -318,6 +324,7 @@ document.addEventListener('pointerdown', e => {
 });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => document.addEventListener(ev, () => { if (holdEl) endHold(); }, true));
 document.addEventListener('contextmenu', e => { if (e.target.closest('[data-hold]')) e.preventDefault(); });
+$('tapCall').onclick = callNext;
 // 次の組を呼ぶ：つまみを右までなぞると確定する（押し間違い防止）。Enter・スペースでも呼べる
 (() => {
   const tr = $('track'), kn = $('knob'); let sx = 0, x = 0, max = 1, on = false;
@@ -353,7 +360,9 @@ const H_FILTERS = [['all', 'すべて'], ['live', '待ち・呼び出し中'], [
 function renderHist() {
   const q = $('hq').value.trim();
   $('hchips').innerHTML = H_FILTERS.map(([k, n]) => `<button data-f="${k}" class="chip ${hFilter === k ? 'on' : ''}">${n}</button>`).join('');
-  let ls = list.slice().sort((a, b) => b.number - a.number);
+  // 新しい動きがあった順（番号がない列・記録の組も、時刻の位置に入る）
+  const lastAt = t => Math.max(t.createdAt || 0, t.calledAt || 0, t.enteredAt || 0, t.absentAt || 0, t.cancelledAt || 0);
+  let ls = list.slice().sort((a, b) => lastAt(b) - lastAt(a) || b.number - a.number);
   if (hFilter === 'live') ls = ls.filter(t => t.status === 'waiting' || t.status === 'called');
   if (hFilter === 'done') ls = ls.filter(isDone);
   if (hFilter === 'bad') ls = ls.filter(isInvalid);
@@ -520,6 +529,8 @@ $('paperBtn').onclick = () => { pf.result = null; pf.err = ''; $('psheet').hidde
 $('pClose').onclick = () => { $('psheet').hidden = true; };
 
 /* ---------- 列から整理券式に切り替える ---------- */
+// 呼び出し方法：この端末だけの設定（slide＝右へスライド、tap＝タップ）
+const callMode = () => { try { return localStorage.getItem('seiriken-callmode') === 'tap' ? 'tap' : 'slide'; } catch (e) { return 'slide'; } };
 const toInt = v => parseInt(String(v).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[^0-9]/g, ''), 10) || 0;
 $('queueBtn').onclick = () => { $('menu').hidden = true; $('qG').value = ''; $('qP').value = ''; $('qErr').textContent = ''; $('qsheet').hidden = false; };
 $('qClose').onclick = () => { $('qsheet').hidden = true; };
@@ -592,6 +603,10 @@ function renderMenu() {
   const wOn = cfg.showWait !== false, mOn = cfg.multiTicket !== false;
   $('custBox').innerHTML = switchRow('waitSw', '待ち時間を表示する', 'オフにすると「約○分」「○時ごろ」を出さず、「あと○組」だけを表示します。', wOn)
     + switchRow('multiSw', '待機中でも別の整理券を発行できる', '動作確認用です。本番ではオフにしてください。', mOn);
+  const cm = callMode();
+  $('devBox').innerHTML = `<div class="stitle">次の組を呼ぶ方法</div><div class="sdesc">この端末だけの設定です。ほかのスマホには影響しません。</div><div class="segc"><button id="cmSlide" class="${cm === 'slide' ? 'on' : ''}">スライド<small>右へなぞって呼ぶ</small></button><button id="cmTap" class="${cm === 'tap' ? 'on' : ''}">タップ<small>押すとすぐ呼ぶ</small></button></div>`;
+  const setCm = v => { try { localStorage.setItem('seiriken-callmode', v); } catch (e) {} renderMenu(); render(); };
+  $('cmSlide').onclick = () => setCm('slide'); $('cmTap').onclick = () => setCm('tap');
   $('waitSw').onclick = () => saveCfg({ showWait: !wOn });
   $('multiSw').onclick = () => saveCfg({ multiTicket: !mOn });
 }
