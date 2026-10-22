@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=44"></head>
-<body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=45"></head>
+<body class="st-none"><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=44"></script><script src="common.js?v=44"></script>
+<script src="firebase-config.js?v=45"></script><script src="common.js?v=45"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -50,7 +50,7 @@ function subMe() {
       if (!d.exists) { delete mine[id]; myIds = myIds.filter(x => x !== id); saveIds(); }
       else { const t = { id, ...d.data() }; if (t.status === 'arrived') t.status = 'inroom'; if (t.status === 'skipped') t.status = 'called'; mine[id] = t; }
       pickMe(); syncSum(); render();
-    }));
+    }, errSnap));
   });
 }
 async function issue() {
@@ -79,7 +79,7 @@ async function issue() {
     try { localStorage.setItem('seiriken-nick', name); } catch (e) {}
     saveIds(); busy = false; subMe();
   } catch (err) {
-    busy = false; formErr = err.message === 'closed' ? 'ただいま整理券を発行できません' : '整理券を発行できませんでした。もう一度お試しください'; render();
+    busy = false; formErr = errText('IS', err); render();
   }
 }
 function leave() { myIds = []; mine = {}; selId = null; sig = ''; saveIds(); me = null; subMe(); }
@@ -135,7 +135,7 @@ function viewTicket() {
   if (me.status === 'called') {
     return shell('call', `<div class="h1 c" id="hd" style="font-size:clamp(24px,7.4vw,34px)">待機室へお越しください</div>
       <div class="tk call">${body()}${perf(true)}<div class="tk-stub">${stubHtml(true)}</div></div>
-      ${tearErr ? '<div class="err c" id="tearErr">通信できませんでした。もう一度なぞってください</div>' : ''}`,
+      ${tearErr ? `<div class="err c" id="tearErr">${esc(tearErr)}</div>` : ''}`,
       `<div class="small c">待機室で、丸いつまみから右へなぞって半券をもぎり、スタッフにこの画面をお見せください。</div>`);
   }
   if (me.status === 'inroom' || me.status === 'guided') {
@@ -169,7 +169,7 @@ function render() {
   if (!me) { app.innerHTML = myIds.length ? '<div class="scr"><p class="c small">読み込み中…</p></div>' : viewIssue(); wire(); return; }
   app.innerHTML = viewTicket();
   document.title = me.status === 'called' ? '【待機室へお越しください】整理券' : '整理券';
-  wire(); tick();
+  wire(); tick(); ackSeen();
 }
 
 function wire() {
@@ -184,7 +184,7 @@ function wire() {
     // 新しいルールでは cancelledBy も書ける。古いルールのままでも動くよう、拒否されたら cancelledBy なしでやり直す
     ref.update({ status: 'cancelled', cancelledAt: now, cancelledBy: 'customer' })
       .catch(() => ref.update({ status: 'cancelled', cancelledAt: now }))
-      .catch(() => alert('キャンセルできませんでした。もう一度お試しください'));
+      .catch(e => alert(errText('CA', e)));
   };
   if ($('refresh')) $('refresh').onclick = () => { subAll(); };
   if ($('again')) $('again').onclick = leave;
@@ -193,7 +193,7 @@ function wire() {
 }
 
 /* ---------- 半券をもぎる ---------- */
-let tearErr = false;
+let tearErr = ''; // もぎれなかったときの、原因とコードの文章
 const ANDROID = /Android/i.test(navigator.userAgent);
 const reduceMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
 function setupTear() {
@@ -236,19 +236,19 @@ function setupTear() {
   h.onpointerup = end; h.onpointercancel = end;
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const TEAR_ERR = '<div class="err c" id="tearErr">通信できませんでした。もう一度なぞってください</div>';
+const tearErrHtml = () => `<div class="err c" id="tearErr">${esc(tearErr)}</div>`;
 // もぎる。残りを一気に破り切る → 半券が落ちる → はんこ → 入室済み画面へ（見た目をそろえてあるので、つなぎ目は出ない）
 async function tear(tk, h) {
   const stub = tk.querySelector('.tk-stub'), main = tk.querySelector('.tk-main'), hd = document.getElementById('hd');
   const stampEl = document.createElement('div'); stampEl.className = 'stamp pop'; stampEl.textContent = '入室済み';
-  const fail = () => {
-    tearErr = true; dragging = false;
+  const fail = e => {
+    tearErr = errText('TR', e); dragging = false;
     // 落ちた半券を、フェードインで元に戻す
     stampEl.remove(); tk.classList.remove('ripped', 'fin', 'in', 'shake', 'tdrag'); tk.classList.add('call', 'back');
     tk.style.setProperty('--p', 0); h.style.transform = ''; h.style.transition = ''; h.style.opacity = '';
     if (hd) hd.textContent = '待機室へお越しください';
     document.body.className = 'st-call';
-    if (!document.getElementById('tearErr')) tk.insertAdjacentHTML('afterend', TEAR_ERR);
+    if (!document.getElementById('tearErr')) tk.insertAdjacentHTML('afterend', tearErrHtml());
     setTimeout(() => tk.classList.remove('back'), 400);
     pending = false;
     return false;
@@ -257,34 +257,34 @@ async function tear(tk, h) {
   if (navigator.onLine === false) {
     tk.classList.add('snap'); h.style.transition = 'transform .3s cubic-bezier(.3,1.4,.5,1)'; h.style.transform = 'translateX(0)'; tk.style.setProperty('--p', 0);
     setTimeout(() => { tk.classList.remove('snap', 'tdrag'); h.style.transition = ''; }, 320);
-    tearErr = true; dragging = false;
-    if (!document.getElementById('tearErr')) tk.insertAdjacentHTML('afterend', TEAR_ERR);
+    tearErr = errText('TR', new Error('offline')); dragging = false;
+    if (!document.getElementById('tearErr')) tk.insertAdjacentHTML('afterend', tearErrHtml());
     return false;
   }
-  tearErr = false; const old = document.getElementById('tearErr'); if (old) old.remove();
+  tearErr = ''; const old = document.getElementById('tearErr'); if (old) old.remove();
   vibrate([60, 40, 90]);
   const reduce = reduceMotion();
-  let failed = false;
+  let failed = null;
   const save = db.collection('tickets').doc(me.id).update({ status: 'inroom', enteredAt: Date.now(), torn: true });
   const result = Promise.race([save.then(() => true), sleep(5000).then(() => { throw new Error('timeout'); })]);
-  result.catch(() => { failed = true; });
+  result.catch(e => { failed = e; });
   // 1. 右の層も一気に破り切る
   tk.classList.add('fin'); tk.style.setProperty('--p', 1); h.style.transition = 'opacity .1s'; h.style.opacity = 0;
-  await sleep(120); if (failed) return fail();
+  await sleep(120); if (failed) return fail(failed);
   // 2. 半券全体が、少し浮いてから落ちる
   tk.classList.remove('fin');
   stub.style.setProperty('--fx', (Math.random() * 40 - 20).toFixed(0) + 'px');
   stub.style.setProperty('--fr', (-(14 + Math.random() * 8)).toFixed(0) + 'deg');
   tk.classList.add('ripped');
-  await sleep(reduce ? 200 : 300); if (failed) return fail();
+  await sleep(reduce ? 200 : 300); if (failed) return fail(failed);
   // 3. はんこ。同時に震えて、背景が入室済みの緑へ
   main.appendChild(stampEl);
   if (!reduce) { tk.classList.add('shake'); setTimeout(() => tk.classList.remove('shake'), 90); }
   tk.classList.remove('call'); tk.classList.add('in');
   if (hd) hd.textContent = '入室しました';
   document.body.className = 'st-in';
-  await sleep(reduce ? 300 : 500); if (failed) return fail();
-  try { await result; } catch (e) { return fail(); }
+  await sleep(reduce ? 300 : 500); if (failed) return fail(failed);
+  try { await result; } catch (e) { return fail(e); }
   // 4. 完成した見た目のまま、入室済み画面に切り替える
   dragging = false; pending = false; render();
   return true;
@@ -294,10 +294,58 @@ async function tear(tk, h) {
 function tick() { const c = document.getElementById('clk'); if (c) c.textContent = fmtHMS(Date.now()); }
 setInterval(tick, 500);
 
+/* ---------- 通信の警告（A・B・C）と、呼び出しが届いた印（E） ---------- */
+// A: 切れた状態が5分続いたら警告  B: つながったら自動で戻る（切れている間は1分ごとにつなぎ直す）
+// C: スタッフ画面の更新（1分ごとの生存確認）が5分止まったら警告  E: 呼び出し中の券が画面に出たら seenAt を1回だけ書く
+let offSince = 0, watchErr = null, staffStale = 0, backAt = 0, retryAt = 0, ackTried = {};
+const errSnap = e => { watchErr = e; netUpdate(); };
+function netBack() { if (offSince && Date.now() - offSince >= WARN_MS) backAt = Date.now(); offSince = 0; watchErr = null; netUpdate(); }
+const ago = ms => { const m = Math.max(1, Math.round(ms / 60000)); return m + '分'; };
+function netUpdate() {
+  const el = document.getElementById('net'); if (!el) return;
+  const now = Date.now();
+  if (navigator.onLine === false && !offSince) offSince = now;
+  let cls = '', html = '';
+  if (watchErr) {
+    const k = causeKey(watchErr);
+    cls = 'bad'; html = `<b>最新の状態を取得できません</b><br>原因：${esc(CAUSES[k][0])}。${esc(CAUSES[k][1])}。<small>（エラーコード WT-${k}）</small>`;
+  } else if (offSince && now - offSince >= WARN_MS) {
+    cls = 'bad'; html = `<b>通信が切れています（${ago(now - offSince)}前から）</b><br>順番が進んでも、この画面には反映されません。電波のよい場所に移動してください。自動でつなぎ直しています。<small>（エラーコード WT-N1）</small>`;
+    if (now - retryAt > 60000) { retryAt = now; subAll(); }
+  } else if (staffStale) {
+    cls = 'warn'; html = `<b>スタッフ側の更新が止まっているようです（${ago(staffStale)}以上）</b><br>順番が進んでいない可能性があります。会場のスタッフにお声がけください。<small>（エラーコード WT-S3）</small>`;
+  } else if (backAt && now - backAt < 4000) {
+    cls = 'ok'; html = '<b>つながりました</b>　最新の状態に更新しました。';
+  }
+  el.hidden = !html; el.className = cls; if (html && el.dataset.h !== html) { el.innerHTML = html; el.dataset.h = html; } if (!html) el.dataset.h = '';
+}
+setInterval(netUpdate, 1000);
+addEventListener('offline', () => { if (!offSince) offSince = Date.now(); netUpdate(); });
+// C: 生存確認の時刻を2分ごとに読む（呼び出し待ちの券があるときだけ。1回の読み取りで済む）
+async function pollStaff() {
+  if (document.hidden || !myIds.some(id => mine[id] && ['waiting', 'called'].includes(mine[id].status))) { staffStale = 0; return; }
+  try {
+    const d = await heartbeatRef().get({ source: 'server' });
+    const at = d.exists ? d.data().updatedAt : 0, age = Date.now() - at;
+    staffStale = at && age >= WARN_MS ? age : 0;
+  } catch (e) { /* 通信できないときはAの警告に任せる */ }
+  netUpdate();
+}
+setInterval(pollStaff, 120000); setTimeout(pollStaff, 8000);
+function ackSeen() {
+  if (!me || me.status !== 'called' || me.seenAt || me.paper || document.hidden || ackTried[me.id]) return;
+  const id = me.id; ackTried[id] = 1;
+  db.collection('tickets').doc(id).update({ seenAt: Date.now() }).catch(e => { if (e.code !== 'permission-denied') delete ackTried[id]; });
+}
+
 /* ---------- 購読（画面を開き直したときなどに、つなぎ直す） ---------- */
 let unsubs = [], lastOk = Date.now();
 const stamp = () => { const e = document.getElementById('last'); if (e) e.textContent = fmtHMS(lastOk); };
-const okSnap = d => { if (!d.metadata.fromCache) { lastOk = Date.now(); stamp(); } };
+const okSnap = d => {
+  watchErr = null;
+  if (!d.metadata.fromCache) { lastOk = Date.now(); stamp(); netBack(); }
+  else if (!offSince) offSince = Date.now(); // 端末の保存分だけが届いている＝サーバーとつながっていない
+};
 function subAll() {
   unsubs.forEach(u => u()); unsubs = [];
   if (unsubSum) { unsubSum(); unsubSum = null; }
@@ -307,7 +355,7 @@ function subAll() {
 let unsubSum = null;
 function subSum() {
   if (unsubSum) unsubSum();
-  unsubSum = summaryRef().onSnapshot({ includeMetadataChanges: true }, d => { okSnap(d); sum = d.exists ? d.data() : {}; cfg = sum.cfg || {}; render(); });
+  unsubSum = summaryRef().onSnapshot({ includeMetadataChanges: true }, d => { okSnap(d); sum = d.exists ? d.data() : {}; cfg = sum.cfg || {}; render(); }, errSnap);
 }
 function syncSum() {
   const ts = myIds.map(id => mine[id]).filter(Boolean);
@@ -318,7 +366,7 @@ function syncSum() {
 // 別のアプリから戻ったときや、通信が復活したときは、つなぎ直して最新の状態を取り直す
 // 数秒切り替えただけなら読み直さない（つなぎ直すと読み取りが増える）。しばらく離れていたときだけ取り直す
 let hiddenAt = 0;
-document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else if (Date.now() - hiddenAt > 60000) subAll(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else { ackSeen(); pollStaff(); if (Date.now() - hiddenAt > 60000) subAll(); } });
 addEventListener('pageshow', e => { if (e.persisted) subAll(); });
 addEventListener('online', subAll);
 subAll();

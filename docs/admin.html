@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=44"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=45"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -23,7 +23,7 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v44</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v45</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -108,7 +108,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=44"></script><script src="common.js?v=44"></script>
+<script src="firebase-config.js?v=45"></script><script src="common.js?v=45"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -178,7 +178,7 @@ async function txRun(id, expect, makePatch, text) {
     showUndo(text, id, prev);
     return true;
   } catch (e) {
-    alert(e.message === 'changed' ? '他の端末が先に操作しました。画面を最新の状態に更新しました。' : e.message === 'gone' ? 'この整理券が見つかりません。' : '操作できませんでした：' + e.message);
+    alert(errText('OP', e));
     return false;
   }
 }
@@ -192,7 +192,7 @@ function showUndo(text, id, prev) {
 }
 function doUndo() {
   if (!undo) return; const u = undo; undo = null; clearInterval(undoTimer); $('toast').hidden = true;
-  (u.prev ? db.collection('tickets').doc(u.id).update(u.prev) : db.collection('tickets').doc(u.id).delete()).catch(e => alert('元に戻せませんでした：' + e.message));
+  (u.prev ? db.collection('tickets').doc(u.id).update(u.prev) : db.collection('tickets').doc(u.id).delete()).catch(e => alert(errText('UN', e)));
 }
 
 // 「後ろへ回す」の位置：今の順番待ちの3組目と4組目の間（3組に満たなければ最後尾）
@@ -206,14 +206,14 @@ const act = {
   // 列の組：順番待ちのまま、入室済みにする
   enterw: t => txRun(t.id, ['waiting'], () => ({ status: 'inroom', enteredAt: Date.now() }), `${nm(t)}を入室済みにしました`),
   // 人数だけの記録は、呼び出し中には戻せない。間違いは削除する
-  delwalk: async t => { if (confirm(`この記録（${t.people}人）を削除します。よろしいですか？`)) await db.collection('tickets').doc(t.id).delete().catch(e => alert('削除できませんでした：' + e.message)); },
+  delwalk: async t => { if (confirm(`この記録（${t.people}人）を削除します。よろしいですか？`)) await db.collection('tickets').doc(t.id).delete().catch(e => alert(errText('DL', e))); },
   absent: t => txRun(t.id, ['waiting', 'called'], cur => ({ status: 'absent', absentAt: Date.now(), absentBy: 'staff', absentFrom: cur.status }), `${nm(t)}を欠席にしました`),
   // 入室済みにしたのを取り消して、呼び出し中に戻す
-  reopen: t => txRun(t.id, ['inroom', 'guided'], () => ({ status: 'called', enteredAt: del(), torn: del() }), `${nm(t)}を呼び出し中に戻しました`),
+  reopen: t => txRun(t.id, ['inroom', 'guided'], () => ({ status: 'called', enteredAt: del(), torn: del(), seenAt: del() }), `${nm(t)}を呼び出し中に戻しました`),
   // 順番を指定して呼ぶ
-  call: t => txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${nm(t)}を呼び出しました`),
+  call: t => txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now(), seenAt: del() }), `${nm(t)}を呼び出しました`),
   // 欠席にした券を、呼び出し中に戻す（お客さんの画面は「待機室へお越しください」に戻る）
-  restore: t => txRun(t.id, ['absent'], () => ({ status: 'called', calledAt: Date.now(), absentAt: del(), absentBy: del(), absentFrom: del() }), `${nm(t)}を呼び出し中に戻しました`),
+  restore: t => txRun(t.id, ['absent'], () => ({ status: 'called', calledAt: Date.now(), seenAt: del(), absentAt: del(), absentBy: del(), absentFrom: del() }), `${nm(t)}を呼び出し中に戻しました`),
   // 順番待ちの組を、順番待ちのまま後ろへ回す（旧：来ない組も戻せた）
   // 来ない組：順番待ちに戻して、少し後ろに回す
   back: t => txRun(t.id, ['called', 'waiting'], () => {
@@ -231,7 +231,7 @@ function callNext() {
   if (!line.length) return;
   const t = line[0];
   if (t.queue) return act.enterw(t); // 列の組は、呼ぶとそのまま入室済みにする
-  txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${nm(t)}を呼び出しました`)
+  txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now(), seenAt: del() }), `${nm(t)}を呼び出しました`)
 }
 
 /* ---------- 画面 ---------- */
@@ -260,8 +260,9 @@ function render() {
     const called = t.status === 'called';
     const pill = called ? '呼び出し中' : (i === 0 ? '次の順番' : '順番待ち');
     const right = called ? (t.paper ? `<button class="mini ok" data-a="enter" data-id="${t.id}">入室済みにする</button>` : '') : t.queue ? `<button class="mini ok" data-a="enterw" data-id="${t.id}">入室済み</button>` : `<span class="dh" data-drag="${t.id}" aria-label="長押ししてドラッグで並べ替え">≡</span>`;
+    const ack = called && !t.paper ? (t.seenAt ? `<span class="ack ok">届いた ${fmtT(t.seenAt)}</span>` : '<span class="ack no" hidden>未確認</span>') : '';
     return `<div class="row ${t.status}" data-id="${t.id}" data-since="${(called ? t.calledAt : t.createdAt) || ''}" data-kind="${called ? 'call' : 'wait'}" data-late="${called ? 1 : 0}">
-      <div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span><span class="el"></span>${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
+      <div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span><span class="el"></span>${ack}${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
   };
   const doneHtml = t => `<div class="row inroom" data-id="${t.id}"><div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill inroom">${t.torn ? '入室済み（もぎり）' : '入室済み'}</span><span class="el" style="font-size:14px">${fmtT(t.enteredAt)}</span></div></div></div></div>`;
   $('lists').innerHTML = `<div class="grid">
@@ -281,12 +282,22 @@ function tickEl() {
     if (!s) { el.textContent = ''; return; }
     const sec = Math.max(0, Math.round((Date.now() - s) / 1000));
     el.innerHTML = `<span class="lb">${r.dataset.kind === 'call' ? '呼出' : '待ち'}</span> ${mmss(sec)}`;
+    const an = r.querySelector('.ack.no'); if (an) an.hidden = sec < 60;
     r.classList.toggle('late', r.dataset.late === '1' && sec >= ALERT_MIN * 60);
     r.classList.toggle('over', r.dataset.late === '1' && sec >= 15 * 60);
   });
 }
 setInterval(tickEl, 1000);
-function updateOffline() { $('offline').hidden = !(navigator.onLine === false || (cachedSince && Date.now() - cachedSince > 3000)); }
+// D: 赤い帯に、いつから切れているかを出す（コード WT-N1）
+let offlineAt = 0;
+function updateOffline() {
+  const off = navigator.onLine === false || (cachedSince && Date.now() - cachedSince > 3000);
+  if (off && !offlineAt) offlineAt = Math.min(cachedSince || Infinity, Date.now());
+  if (!off) offlineAt = 0;
+  const m = offlineAt ? Math.floor((Date.now() - offlineAt) / 60000) : 0;
+  $('offline').hidden = !off;
+  if (off) $('offline').textContent = `オフラインです（${m >= 1 ? m + '分前から' : 'たった今から'}通信が切れています）。操作が反映されない場合があります。お客さんの画面にも反映されません。（エラーコード WT-N1）`;
+}
 setInterval(updateOffline, 1000); addEventListener('online', updateOffline); addEventListener('offline', updateOffline);
 
 /* ---------- 集計の書き込み ---------- */
@@ -300,7 +311,9 @@ function scheduleSummary() {
   }, 1500);
 }
 
-// モニターは使わないので、1分ごとの更新時刻の書き込みはしない（board.html を使う場合は heartbeatRef() に書く）
+// 1分ごとに「スタッフ画面が動いている」印を書く。お客さん画面は、これが5分止まると警告を出す（コード WT-S3）
+// 画面を閉じる・スマホが寝る・オフラインのときは書かれない
+setInterval(() => { if (auth.currentUser && !document.hidden && navigator.onLine !== false) heartbeatRef().set({ updatedAt: Date.now() }).catch(() => {}); }, 60000);
 
 /* ---------- 操作（クリック・長押し） ---------- */
 document.addEventListener('click', e => {
@@ -531,7 +544,7 @@ async function issuePaper() {
     });
     pf.result = { items: parts.map((p, i) => ({ n: n0 + 1 + i + (grp ? '-' + grp : ''), people: p })), name, people, eta: new Date(Math.round((Date.now() + (ahead + 1) * gap * 1000) / 300000) * 300000) };
   } catch (e) {
-    pf.err = e.message === 'closed' ? '発券を停止中です。設定から再開してください' : '発券できませんでした。もう一度お試しください';
+    pf.err = errText('PP', e);
   }
   pf.busy = false; renderPaper();
 }
@@ -562,7 +575,7 @@ $('qGo').onclick = async () => {
       per.forEach((pp, i) => tx.set(db.collection('tickets').doc(), { day: today(), number: -(q0 + i + 1), name: '列の組', people: pp, status: 'waiting', createdAt: Date.now(), orderKey: base - g + i, paper: true, queue: true }));
     });
     $('qsheet').hidden = true;
-  } catch (e) { err.textContent = '追加できませんでした：' + e.message; }
+  } catch (e) { err.textContent = errText('QU', e); }
   $('qGo').disabled = false;
 };
 
@@ -575,7 +588,7 @@ $('wPlus').onclick = () => { $('wN').value = Math.min(99, toInt($('wN').value) +
 $('wUndo').onclick = async () => {
   if (!lastWalk) return;
   try { const d = await db.collection('tickets').doc(lastWalk).get(); const n = d.exists ? d.data().people : 0; await db.collection('tickets').doc(lastWalk).delete(); walkTotal -= n; lastWalk = null; $('wUndo').hidden = true; $('wMsg').style.color = 'var(--sub)'; $('wMsg').textContent = `取り消しました（この画面で合計${walkTotal}人）`; }
-  catch (e) { alert('取り消せませんでした：' + e.message); }
+  catch (e) { alert(errText('UN', e)); }
 };
 $('wGo').onclick = async () => {
   const n = toInt($('wN').value), msg = $('wMsg');
@@ -589,14 +602,14 @@ $('wGo').onclick = async () => {
     });
     walkTotal += n; $('wN').value = '1'; msg.style.color = 'var(--ok)'; msg.textContent = `${n}人を記録しました（この画面で合計${walkTotal}人）`;
     lastWalk = newRef.id; $('wUndo').hidden = false;
-  } catch (e) { msg.style.color = 'var(--bad)'; msg.textContent = '記録できませんでした：' + e.message; }
+  } catch (e) { msg.style.color = 'var(--bad)'; msg.textContent = errText('WK', e); }
   $('wGo').disabled = false;
 };
 
 /* ---------- 管理メニュー ---------- */
 // スイッチの行（タップでオン・オフを切り替える）
 const switchRow = (id, title, desc, on) => `<div class="setrow"><div class="stx"><div class="stitle">${title}</div><div class="sdesc">${desc}</div></div><button id="${id}" class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}"><span>${on ? 'オン' : 'オフ'}</span></button></div>`;
-const saveCfg = patch => counter().set(patch, { merge: true }).catch(e => alert('変更できませんでした：' + e.message));
+const saveCfg = patch => counter().set(patch, { merge: true }).catch(e => alert(errText('CF', e)));
 function renderMenu() {
   $('stopBox').innerHTML = cfg.closed
     ? `<div class="state bad"><b>発券を停止中</b>${cfg.closedReason ? `<span>理由：${esc(cfg.closedReason)}</span>` : ''}${cfg.reopenAt ? `<span>再開の予定：${esc(cfg.reopenAt)}</span>` : ''}</div><button id="reopenBtn" class="full btn-ok">発券を再開する</button>`
@@ -638,12 +651,12 @@ $('testDel').onclick = async () => {
     const rest = (await db.collection('tickets').where('day', '==', today()).get()).docs.length;
     if (rest === 0) await counter().set({ last: 0, qLast: 0, wLast: 0 }, { merge: true });
     alert(`${n}件を削除しました${rest === 0 ? '。番号を1番に戻しました。' : '。'}`);
-  } catch (e) { alert('削除できませんでした：' + e.message); }
+  } catch (e) { alert(errText('DL', e)); }
 };
 $('resetBtn').onclick = async () => {
   if ($('resetIn').value.trim() !== 'リセット') return;
   try { await deleteTickets(() => true); await counter().set({ last: 0, qLast: 0, wLast: 0 }, { merge: true }); $('menu').hidden = true; alert('リセットしました。'); }
-  catch (e) { alert('リセットできませんでした：' + e.message); }
+  catch (e) { alert(errText('DL', e)); }
 };
 $('csvBtn').onclick = () => {
   const st = { waiting: '順番待ち', called: '呼び出し中', inroom: '入室済み', guided: '入室済み', absent: '欠席', cancelled: 'キャンセル' };
@@ -657,7 +670,7 @@ $('acctClose').onclick = () => { $('acct').hidden = true; };
 $('logoutBtn').onclick = () => { if (confirm('ログアウトします。よろしいですか？')) auth.signOut().then(() => location.reload()); };
 
 /* ---------- ログイン ---------- */
-$('loginBtn').onclick = () => auth.signInWithEmailAndPassword($('email').value, $('pass').value).catch(() => alert('ログインできませんでした。メールアドレスとパスワードを確認してください。'));
+$('loginBtn').onclick = () => auth.signInWithEmailAndPassword($('email').value, $('pass').value).catch(e => alert(errText('LG', e)));
 auth.onAuthStateChanged(u => {
   $('login').hidden = !!u; $('app').hidden = !u;
   if (u) { $('userName').textContent = u.displayName || (u.email || '').split('@')[0] || 'スタッフ'; startWatch(); }
