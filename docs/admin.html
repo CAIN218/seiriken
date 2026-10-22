@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=35"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=37"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -19,7 +19,7 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v35</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v37</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -42,6 +42,25 @@
   <div id="pBody"></div>
 </div></div>
 
+<div id="qsheet" class="modal" hidden><div class="sheet">
+  <div class="shead"><h3>列から切り替え</h3><button id="qClose" class="xbtn">閉じる</button></div>
+  <div class="box"><div class="ho" style="margin-bottom:6px">いま列に並んでいる組数と人数を入力してください。番号のない「列」の組として、順番待ちの先頭に入ります。お客さんの画面には、後ろに並ぶ組として「あと○組」に数えられます。</div>
+    <div style="font-weight:800;margin-top:8px">組数</div><input id="qG" type="text" inputmode="numeric" placeholder="例：12" autocomplete="off">
+    <div style="font-weight:800;margin-top:8px">人数（全員で）</div><input id="qP" type="text" inputmode="numeric" placeholder="例：20" autocomplete="off">
+    <div id="qErr" style="color:var(--bad);font-weight:800;margin-top:8px"></div></div>
+  <button id="qGo" class="full btn-main" style="min-height:64px;font-size:20px">列の組を追加する</button>
+  <div class="ho" style="margin:8px 4px">入室したら、その組の行の「入室済みにする」を押してください。</div>
+</div></div>
+
+<div id="wsheet" class="modal" hidden><div class="sheet">
+  <div class="shead"><h3>人数を記録する</h3><button id="wClose" class="xbtn">閉じる</button></div>
+  <div class="box"><div class="ho" style="margin-bottom:6px">整理券を使わずに入った人数を、入室済みとして記録します（空いている時間など）。</div>
+    <div class="pseg"><button id="wMinus" aria-label="1人減らす">−</button><input id="wN" type="text" inputmode="numeric" value="1" autocomplete="off" style="text-align:center;font-size:28px;font-weight:900;margin:0"><button id="wPlus" aria-label="1人増やす">＋</button></div>
+    <div id="wMsg" style="font-weight:800;margin-top:8px;min-height:1.4em;color:var(--ok)"></div></div>
+  <button id="wGo" class="full btn-ok" style="min-height:64px;font-size:22px">入室済みとして記録する</button>
+  <button id="wUndo" class="full" style="min-height:52px" hidden>直前の記録を取り消す</button>
+</div></div>
+
 <div id="acct" class="modal" hidden><div class="sheet">
   <h3>ログイン中のアカウント</h3>
   <div class="box"><div style="font-size:20px;font-weight:800" id="acctName"></div><div style="color:#5a6378" id="acctMail"></div></div>
@@ -61,7 +80,7 @@
   <div class="box" id="stopBox"></div>
   <div class="box" id="waitBox"></div>
   <div class="box" id="multiBox"></div>
-  <div class="box" id="pushBox"></div>
+  <div class="box"><div style="font-weight:800">列から整理券式に切り替える</div><div style="font-size:14px;color:#5a6378">いま列に並んでいる組数と人数を入力すると、番号のない「列」の組として順番待ちの先頭に入ります。</div><button id="queueBtn" class="full" style="min-height:52px">列の組を入力する</button></div>
   <div class="box"><button id="csvBtn" class="full">今日の記録をCSVでダウンロード</button></div>
   <div class="box"><div style="font-weight:800">テスト用の整理券の削除</div>
     <div style="font-size:14px;color:#5a6378">お客さん画面のURLの末尾に <b>?test=1</b> を付けて発行した整理券だけを削除します。</div>
@@ -76,7 +95,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=35"></script><script src="common.js?v=35"></script>
+<script src="firebase-config.js?v=37"></script><script src="common.js?v=37"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -84,7 +103,12 @@ const counter = () => db.collection('counters').doc(today());
 const del = () => firebase.firestore.FieldValue.delete();
 let list = [], cfg = {}, unsub = null, unsubCnt = null, cachedSince = 0;
 let holdEl = null, holdTimer = null, pendingRender = false;
-const label = t => `${t.paper ? '<span class="pmark">紙</span> ' : ''}${t.name ? esc(t.name) : '（名前なし）'} <small>${t.people}名</small>`;
+// 番号のない組：列から切り替えたときの組は「列1, 列2…」（number は負）、人数だけの記録は「記録」
+const nl = t => t.number > 0 ? String(t.number) : t.walkin ? '記録' : '列' + (-t.number);
+const nm = t => t.number > 0 ? t.number + '番' : nl(t);
+const kindOf = t => t.queue ? '列' : t.walkin ? '記録' : t.paper ? '紙' : '';
+const groupsOf = t => t.walkin ? Math.ceil((t.people || 1) / 2) : 1;
+const label = t => `${kindOf(t) ? `<span class="pmark">${kindOf(t)}</span> ` : ''}${t.name ? esc(t.name) : '（名前なし）'} <small>${t.people}名</small>`;
 const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const fmtT = ms => ms ? new Date(ms).toLocaleTimeString('ja-JP', { hour12: false }) : '';
 
@@ -119,7 +143,7 @@ function detailHtml(t) {
   if (made && (t.calledAt || end)) add('待った時間', fmtDur((t.calledAt || end) - made) + (t.calledAt ? '（発行→呼び出し）' : isInvalid(t) ? '（発行→無効になるまで）' : '（発行から今まで）'));
   if (t.calledAt && end && t.status !== 'waiting') add('呼び出してから', fmtDur(end - t.calledAt) + (t.status === 'called' ? '（経過中）' : isDone(t) ? '（入室まで）' : '（無効になるまで）'));
   if (t.test) add('種類', 'テスト用');
-  if (t.paper) add('種類', '紙の整理券（スマホなし）');
+  if (t.queue) add('種類', '列から切り替えた組（番号なし）'); else if (t.walkin) add('種類', '人数だけの記録（整理券なし）'); else if (t.paper) add('種類', '紙の整理券（スマホなし）');
   return `<table class="det">${rows.join('')}</table>`;
 }
 
@@ -155,21 +179,7 @@ function showUndo(text, id, prev) {
 }
 function doUndo() {
   if (!undo) return; const u = undo; undo = null; clearInterval(undoTimer); $('toast').hidden = true;
-  db.collection('tickets').doc(u.id).update(u.prev).catch(e => alert('元に戻せませんでした：' + e.message));
-}
-
-// 画面を閉じているお客さんにも届く通知（設定済みのときだけ）
-const PUSH_URL = (window.PUSH_WORKER_URL || '').replace(/\/$/, '');
-function pushNotify(id) {
-  if (!PUSH_URL) return;
-  fetch(PUSH_URL + '/notify', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ ticketId: id }) }).catch(() => {});
-}
-// 「まもなく順番です」の位置に入った組へ、一度だけ通知する
-function pushSoon() {
-  if (!PUSH_URL) return;
-  list.filter(inLine).sort(byOrder).slice(0, SOON_AHEAD + 1).forEach(t => {
-    if (!t.soonPushedAt) db.collection('tickets').doc(t.id).update({ soonPushedAt: Date.now() }).then(() => pushNotify(t.id)).catch(() => {});
-  });
+  (u.prev ? db.collection('tickets').doc(u.id).update(u.prev) : db.collection('tickets').doc(u.id).delete()).catch(e => alert('元に戻せませんでした：' + e.message));
 }
 
 // 「後ろへ回す」の位置：今の順番待ちの3組目と4組目の間（3組に満たなければ最後尾）
@@ -179,32 +189,33 @@ function backKey(selfId) {
   return ls.length ? orderKey(ls[ls.length - 1]) + 1 : null;
 }
 const act = {
-  enter: t => txRun(t.id, ['called'], () => ({ status: 'inroom', enteredAt: Date.now(), torn: del() }), `${t.number}番を入室済みにしました`),
-  renotify: t => txRun(t.id, ['called'], () => ({ reNotifiedAt: Date.now() }), `${t.number}番に再通知しました`).then(ok => { if (ok) pushNotify(t.id); }),
-  absent: t => txRun(t.id, ['waiting', 'called'], cur => ({ status: 'absent', absentAt: Date.now(), absentBy: 'staff', absentFrom: cur.status }), `${t.number}番を欠席にしました`),
+  enter: t => txRun(t.id, ['called'], () => ({ status: 'inroom', enteredAt: Date.now(), torn: del() }), `${nm(t)}を入室済みにしました`),
+  // 列の組：順番待ちのまま、入室済みにする
+  enterw: t => txRun(t.id, ['waiting'], () => ({ status: 'inroom', enteredAt: Date.now() }), `${nm(t)}を入室済みにしました`),
+  absent: t => txRun(t.id, ['waiting', 'called'], cur => ({ status: 'absent', absentAt: Date.now(), absentBy: 'staff', absentFrom: cur.status }), `${nm(t)}を欠席にしました`),
   // 入室済みにしたのを取り消して、呼び出し中に戻す
-  reopen: t => txRun(t.id, ['inroom', 'guided'], () => ({ status: 'called', enteredAt: del(), torn: del() }), `${t.number}番を呼び出し中に戻しました`),
+  reopen: t => txRun(t.id, ['inroom', 'guided'], () => ({ status: 'called', enteredAt: del(), torn: del() }), `${nm(t)}を呼び出し中に戻しました`),
   // 順番を指定して呼ぶ
-  call: t => txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${t.number}番を呼び出しました`).then(ok => { if (ok && !t.paper) pushNotify(t.id); return ok; }),
+  call: t => txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${nm(t)}を呼び出しました`),
   // 欠席にした券を、呼び出し中に戻す（お客さんの画面は「待機室へお越しください」に戻る）
-  restore: t => txRun(t.id, ['absent'], () => ({ status: 'called', calledAt: Date.now(), absentAt: del(), absentBy: del(), absentFrom: del() }), `${t.number}番を呼び出し中に戻しました`).then(ok => { if (ok) pushNotify(t.id); return ok; }),
+  restore: t => txRun(t.id, ['absent'], () => ({ status: 'called', calledAt: Date.now(), absentAt: del(), absentBy: del(), absentFrom: del() }), `${nm(t)}を呼び出し中に戻しました`),
   // 順番待ちの組を、順番待ちのまま後ろへ回す（旧：来ない組も戻せた）
   // 来ない組：順番待ちに戻して、少し後ろに回す
   back: t => txRun(t.id, ['called', 'waiting'], () => {
-    const k = backKey(t.id), patch = { status: 'waiting', calledAt: del(), reNotifiedAt: del(), soonPushedAt: del(), skipped: del(), skippedAt: del() };
+    const k = backKey(t.id), patch = { status: 'waiting', calledAt: del(), skipped: del(), skippedAt: del() };
     if (k != null) patch.orderKey = k;
     return patch;
-  }, `${t.number}番を後ろへ回しました`),
+  }, `${nm(t)}を後ろへ回しました`),
   first: t => txRun(t.id, ['waiting'], () => {
     const ls = list.filter(inLine).sort(byOrder).filter(x => x.id !== t.id);
     return ls.length ? { orderKey: orderKey(ls[0]) - 1 } : {};
-  }, `${t.number}番を先頭にしました`)
+  }, `${nm(t)}を先頭にしました`)
 };
 function callNext() {
   const line = list.filter(inLine).sort(byOrder);
   if (!line.length) return;
   const t = line[0];
-  txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${t.number}番を呼び出しました`).then(ok => { if (ok && !t.paper) pushNotify(t.id); });
+  txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${nm(t)}を呼び出しました`)
 }
 
 /* ---------- 画面 ---------- */
@@ -214,9 +225,10 @@ function render() {
   const line = list.filter(inLine).sort(byOrder);
   const done = list.filter(isDone).sort((a, b) => (b.enteredAt || 0) - (a.enteredAt || 0));
   $('callNext').disabled = !line.length;
-  $('callNext').textContent = line.length ? `次の組を呼ぶ（${line[0].number}番）` : '呼び出せる組はありません';
+  $('callNext').textContent = line.length ? `次の組を呼ぶ（${nm(line[0])}）` : '呼び出せる組はありません';
   const nBad = list.filter(isInvalid).length;
-  $('stats').innerHTML = `<span>待ち <b>${line.length}</b></span><span>呼出中 <b>${room.length}</b></span><span>入室済み <b>${done.length}</b></span><button id="statBad" class="statlink">無効 <b>${nBad}</b></button>`;
+  $('stats').innerHTML = `<span>待ち <b>${line.length}</b>組</span><span>呼び出し中 <b>${room.length}</b>組</span><span>入室済み <b>${done.reduce((a, t) => a + groupsOf(t), 0)}</b>組 <b>${done.reduce((a, t) => a + (t.people || 0), 0)}</b>人</span><button id="statBad" class="statlink">無効 <b>${nBad}</b></button><button id="walkBtn" class="statlink">人数を記録</button>`;
+  $('walkBtn').onclick = openWalk;
   $('statBad').onclick = () => { hFilter = 'bad'; $('hq').value = ''; $('hist').hidden = false; renderHist(); };
   $('stopNote').innerHTML = cfg.closed ? `<div class="notice stop">発券を停止中${cfg.closedReason ? '：' + esc(cfg.closedReason) : ''}</div>` : '';
   document.body.style.background = cfg.closed ? '#f3e4e4' : '';
@@ -224,16 +236,16 @@ function render() {
   const rowHtml = (t, i) => {
     const called = t.status === 'called';
     const pill = called ? '呼び出し中' : (i === 0 ? '次の順番' : '順番待ち');
-    const right = called ? (t.paper ? `<button class="mini ok" data-a="enter" data-id="${t.id}">入室済みにする</button>` : `<button class="mini" data-a="renotify" data-id="${t.id}">再通知</button>`) : `<span class="dh" data-drag="${t.id}" aria-label="長押ししてドラッグで並べ替え">≡</span>`;
+    const right = called ? (t.paper ? `<button class="mini ok" data-a="enter" data-id="${t.id}">入室済みにする</button>` : '') : t.queue ? `<button class="mini ok" data-a="enterw" data-id="${t.id}">入室済み</button>` : `<span class="dh" data-drag="${t.id}" aria-label="長押ししてドラッグで並べ替え">≡</span>`;
     return `<div class="row ${t.status}" data-id="${t.id}" data-since="${(called ? t.calledAt : t.createdAt) || ''}" data-kind="${called ? 'call' : 'wait'}" data-late="${called ? 1 : 0}">
-      <div class="rtop"><div class="num">${t.number}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span><span class="el"></span>${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
+      <div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span><span class="el"></span>${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
   };
-  const doneHtml = t => `<div class="row inroom" data-id="${t.id}"><div class="rtop"><div class="num">${t.number}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill inroom">${t.torn ? '入室済み（もぎり）' : '入室済み'}</span><span class="el" style="font-size:14px">${fmtT(t.enteredAt)}</span></div></div></div></div>`;
+  const doneHtml = t => `<div class="row inroom" data-id="${t.id}"><div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill inroom">${t.torn ? '入室済み（もぎり）' : '入室済み'}</span><span class="el" style="font-size:14px">${fmtT(t.enteredAt)}</span></div></div></div></div>`;
   $('lists').innerHTML = `<div class="grid">
     ${room.length ? `<h2>呼び出し中（${room.length}組）</h2>${room.map(rowHtml).join('')}` : ''}
     ${line.length ? `<h2>順番待ち（${line.length}組）</h2>${line.map(rowHtml).join('')}` : ''}
     ${!room.length && !line.length ? '<div class="row" style="color:#8a93a6">呼び出し中・順番待ちの組はありません</div>' : ''}</div>
-    <details style="margin-top:12px"><summary style="font-weight:800;color:#5a6378;padding:8px 4px">入室済み（${done.length}組）</summary><div class="grid">${done.map(doneHtml).join('')}</div></details>`;
+    <details style="margin-top:12px"><summary style="font-weight:800;color:#5a6378;padding:8px 4px">入室済み（${done.reduce((a, t) => a + groupsOf(t), 0)}組・${done.reduce((a, t) => a + (t.people || 0), 0)}人）</summary><div class="grid">${done.map(doneHtml).join('')}</div></details>`;
   tickEl();
   if (!$('check').hidden) renderCheck();
   if (!$('hist').hidden) renderHist();
@@ -257,7 +269,7 @@ setInterval(updateOffline, 1000); addEventListener('online', updateOffline); add
 /* ---------- 集計の書き込み ---------- */
 let lastSummary = '', sumTimer = null;
 function scheduleSummary() {
-  clearTimeout(sumTimer); pushSoon();
+  clearTimeout(sumTimer);
   sumTimer = setTimeout(() => {
     const sm = buildSummary(list), js = JSON.stringify(sm);
     if (js === lastSummary) return;
@@ -307,7 +319,7 @@ function renderCheck() {
   else if (t.status === 'called') { cls = 'warn'; text = '呼び出し中（まだ入室していません）'; btn = `<button class="full btn-ok" style="min-height:60px;font-size:20px" data-a="enter" data-id="${t.id}">入室済みにする</button>`; }
   else if (t.status === 'waiting') { cls = 'none'; text = 'まだ呼び出していません（順番待ち）'; }
   else { cls = 'bad'; text = t.status === 'cancelled' ? '無効です（キャンセル）' : '無効です（欠席）'; if (t.status === 'absent') btn = `<button class="full btn-ok" style="min-height:60px;font-size:20px" data-a="restore" data-id="${t.id}">呼び出し中に戻す</button>`; }
-  box.innerHTML = `<div class="check ${cls}"><div class="n">${t.number}</div><div class="s">${text}</div>${info}</div>${detailHtml(t)}${btn}`;
+  box.innerHTML = `<div class="check ${cls}"><div class="n">${nl(t)}</div><div class="s">${text}</div>${info}</div>${detailHtml(t)}${btn}`;
 }
 $('chkIn').oninput = renderCheck; $('chkClose').onclick = () => { $('check').hidden = true; };
 
@@ -323,7 +335,7 @@ function renderHist() {
   if (hFilter === 'bad') ls = ls.filter(isInvalid);
   if (q) ls = ls.filter(t => String(t.number) === q.replace(/[^0-9]/g, '') || (t.name || '').includes(q));
   $('hlist').innerHTML = ls.length ? ls.map(t => `<div class="hrow ${t.status}" data-num="${t.number}">
-      <div class="hn">${t.number}</div>
+      <div class="hn">${nl(t)}</div>
       <div class="hm"><div class="who">${label(t)} <span class="pill ${isDone(t) ? 'inroom' : t.status}">${stateName(t)}</span></div><div class="ho">${outline(t)}</div></div>
       <button class="ico2" data-a="check" data-id="${t.id}" aria-label="詳しく見る">詳しく</button></div>`).join('')
     : '<div class="box" style="color:#8a93a6">該当する整理券はありません</div>';
@@ -345,11 +357,12 @@ function renderSheet() {
   const hold = `<button class="sbtn" data-hold="absent" data-id="${t.id}" style="user-select:none;-webkit-user-select:none;-webkit-touch-callout:none">欠席にする（長押し）</button>`;
   const b = (a, text, cls, dis) => `<button class="sbtn ${cls || ''}" data-a="${a}" data-id="${t.id}" ${dis ? 'disabled' : ''}>${text}</button>`;
   let btns = '';
-  if (t.status === 'called') btns = (t.paper ? '' : b('renotify', '再通知')) + b('enter', '入室済みにする', 'btn-ok big') + hold;
+  if (t.status === 'called') btns = b('enter', '入室済みにする', 'btn-ok big') + hold;
+  else if (t.status === 'waiting' && t.queue) btns = b('enterw', '入室済みにする', 'btn-ok big') + hold;
   else if (t.status === 'waiting') btns = b('call', '今すぐ呼ぶ', 'btn-ok big') + b('first', '先頭にする', '', first && first.id === t.id) + b('back', '後ろへ回す') + hold;
   else if (isDone(t)) btns = b('reopen', '呼び出し中に戻す');
   else btns = `<div class="box" style="color:#5a6378">${stateName(t)}です。操作はありません。</div>`;
-  $('rsTitle').innerHTML = `${t.number}番　${label(t)}　<span class="pill ${isDone(t) ? 'inroom' : t.status}">${stateName(t)}</span>`;
+  $('rsTitle').innerHTML = `${nm(t)}　${label(t)}　<span class="pill ${isDone(t) ? 'inroom' : t.status}">${stateName(t)}</span>`;
   $('rsBody').innerHTML = `<div class="ho" style="margin:0 2px 8px">${outline(t)}</div><div class="sacts">${btns}</div>`;
 }
 $('rsClose').onclick = closeSheet;
@@ -423,7 +436,7 @@ async function endDrag(e, cancelled) {
   const k = prev && next ? (orderKey(prev) + orderKey(next)) / 2 : !prev && next ? orderKey(next) - 1 : prev ? orderKey(prev) + 1 : null;
   const t = list.find(x => x.id === d.id);
   if (k == null || !t) { flush(); return; }
-  await txRun(d.id, ['waiting'], () => ({ orderKey: k }), `${t.number}番の順番を変えました`);
+  await txRun(d.id, ['waiting'], () => ({ orderKey: k }), `${nm(t)}の順番を変えました`);
   flush();
 }
 document.addEventListener('pointerup', e => endDrag(e, false));
@@ -435,39 +448,42 @@ const fmtEta = d => `${d.getHours()}時${String(d.getMinutes()).padStart(2, '0')
 function renderPaper() {
   if (pf.result) {
     const r = pf.result;
-    $('pBody').innerHTML = `<div class="box c" style="text-align:center"><div style="font-weight:800;color:#5a6378">整理券の番号</div><div class="pnum">${r.n}</div>
+    $('pBody').innerHTML = `<div class="box c" style="text-align:center"><div style="font-weight:800;color:#5a6378">整理券の番号</div>
+      ${r.items.map(it => `<div class="pnum" ${r.items.length > 1 ? 'style="font-size:min(26vw,120px)"' : ''}>${it.n}<small style="font-size:18px;color:#5a6378;font-weight:800"> ${it.people}名</small></div>`).join('')}
       <div class="peta">目安 ${fmtEta(r.eta)}</div><div style="color:#5a6378;margin-top:6px">${esc(r.name)} さん　${r.people}名</div></div>
-      <div class="ho" style="margin:0 4px 8px">番号と目安の時刻を、カードに書き写してお渡しください。</div>
+      <div class="ho" style="margin:0 4px 8px">番号と目安の時刻を、カードに書き写してお渡しください${r.items.length > 1 ? `（${r.items.length}枚）` : ''}。</div>
       <button id="pNext" class="full btn-main" style="min-height:60px;font-size:20px">続けて発券する</button>`;
     $('pNext').onclick = () => { pf.result = null; pf.name = ''; pf.people = 1; renderPaper(); setTimeout(() => $('pName') && $('pName').focus(), 50); };
     return;
   }
+  const parts = splitPeople(pf.people);
   $('pBody').innerHTML = `<div class="box"><div style="font-weight:800">ニックネーム（12文字まで）</div>
       <input id="pName" type="text" maxlength="12" placeholder="例：たろう" value="${esc(pf.name)}" autocomplete="off">
       <div style="font-weight:800;margin-top:8px">人数</div>
-      <div class="pseg"><button data-pp="1" class="${pf.people === 1 ? 'on' : ''}">1人</button><button data-pp="2" class="${pf.people === 2 ? 'on' : ''}">2人</button></div>
+      <div class="pseg"><button data-pd="-1" aria-label="1人減らす" ${pf.people <= 1 ? 'disabled' : ''}>−</button><div class="pn">${pf.people}<small>人</small></div><button data-pd="1" aria-label="1人増やす" ${pf.people >= 8 ? 'disabled' : ''}>＋</button></div>
+      <div class="ho" style="margin-top:6px">${parts.length === 1 ? '整理券は1枚です' : `2人1組で1枚です。整理券は${parts.length}枚になります（${parts.join('名・')}名）`}</div>
       ${pf.err ? `<div style="color:var(--bad);font-weight:800;margin-top:8px">${esc(pf.err)}</div>` : ''}</div>
-    <button id="pIssue" class="full btn-main" style="min-height:64px;font-size:22px" ${pf.busy ? 'disabled' : ''}>${pf.busy ? '発券しています…' : '発券する'}</button>`;
+    <button id="pIssue" class="full btn-main" style="min-height:64px;font-size:22px" ${pf.busy ? 'disabled' : ''}>${pf.busy ? '発券しています…' : parts.length > 1 ? `${parts.length}枚発券する` : '発券する'}</button>`;
   $('pName').oninput = e => { pf.name = e.target.value; };
-  document.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => { pf.people = +b.dataset.pp; renderPaper(); });
+  document.querySelectorAll('[data-pd]').forEach(b => b.onclick = () => { pf.people = Math.max(1, Math.min(8, pf.people + +b.dataset.pd)); renderPaper(); });
   $('pIssue').onclick = issuePaper;
 }
 async function issuePaper() {
   const name = pf.name.trim().slice(0, 12);
   if (!name) { pf.err = 'ニックネームを入力してください'; renderPaper(); return; }
   if (pf.busy) return; pf.busy = true; pf.err = ''; renderPaper();
-  const ref = counter(), newRef = db.collection('tickets').doc();
+  const ref = counter(), parts = splitPeople(pf.people), refs = parts.map(() => db.collection('tickets').doc());
   const ahead = list.filter(inLine).length, gap = buildSummary(list).avgGapSec || DEFAULT_GAP_SEC, people = pf.people;
-  let n = 0;
+  let n0 = 0;
   try {
     await db.runTransaction(async tx => {
       const c = await tx.get(ref);
       if (c.exists && c.data().closed) throw new Error('closed');
-      n = (c.exists ? c.data().last || 0 : 0) + 1;
-      tx.set(ref, { last: n }, { merge: true });
-      tx.set(newRef, { day: today(), number: n, name, people, status: 'waiting', createdAt: Date.now(), paper: true });
+      n0 = c.exists ? c.data().last || 0 : 0;
+      tx.set(ref, { last: n0 + parts.length }, { merge: true });
+      parts.forEach((p, i) => tx.set(refs[i], { day: today(), number: n0 + 1 + i, name, people: p, status: 'waiting', createdAt: Date.now(), paper: true }));
     });
-    pf.result = { n, name, people, eta: new Date(Math.round((Date.now() + (ahead + 1) * gap * 1000) / 300000) * 300000) };
+    pf.result = { items: parts.map((p, i) => ({ n: n0 + 1 + i, people: p })), name, people, eta: new Date(Math.round((Date.now() + (ahead + 1) * gap * 1000) / 300000) * 300000) };
   } catch (e) {
     pf.err = e.message === 'closed' ? '発券を停止中です。設定から再開してください' : '発券できませんでした。もう一度お試しください';
   }
@@ -475,6 +491,58 @@ async function issuePaper() {
 }
 $('paperBtn').onclick = () => { pf.result = null; pf.err = ''; $('psheet').hidden = false; renderPaper(); };
 $('pClose').onclick = () => { $('psheet').hidden = true; };
+
+/* ---------- 列から整理券式に切り替える ---------- */
+const toInt = v => parseInt(String(v).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[^0-9]/g, ''), 10) || 0;
+$('queueBtn').onclick = () => { $('menu').hidden = true; $('qG').value = ''; $('qP').value = ''; $('qErr').textContent = ''; $('qsheet').hidden = false; };
+$('qClose').onclick = () => { $('qsheet').hidden = true; };
+$('qGo').onclick = async () => {
+  const g = toInt($('qG').value), p = toInt($('qP').value), err = $('qErr');
+  if (g < 1 || p < 1) { err.textContent = '組数と人数を入力してください'; return; }
+  if (g > 100 || p > 400) { err.textContent = '数が大きすぎます。入力を確認してください'; return; }
+  if (p < g) { err.textContent = '人数が組数より少ないです。入力を確認してください'; return; }
+  if (p > g * 2 && !confirm(`1組あたり2人を超えています（${g}組・${p}人）。このまま追加しますか？`)) return;
+  if (!confirm(`${g}組・${p}人を、順番待ちの先頭に入れます。よろしいですか？`)) return;
+  err.textContent = '';
+  const base = Math.min(0, ...list.map(orderKey)), per = Array.from({ length: g }, (_, i) => Math.floor(p / g) + (i < p % g ? 1 : 0));
+  $('qGo').disabled = true;
+  try {
+    await db.runTransaction(async tx => {
+      const ref = counter(), c = await tx.get(ref), q0 = c.exists ? c.data().qLast || 0 : 0;
+      tx.set(ref, { qLast: q0 + g }, { merge: true });
+      per.forEach((pp, i) => tx.set(db.collection('tickets').doc(), { day: today(), number: -(q0 + i + 1), name: '列の組', people: pp, status: 'waiting', createdAt: Date.now(), orderKey: base - g + i, paper: true, queue: true }));
+    });
+    $('qsheet').hidden = true;
+  } catch (e) { err.textContent = '追加できませんでした：' + e.message; }
+  $('qGo').disabled = false;
+};
+
+/* ---------- 人数だけの記録（入室済みとして数える） ---------- */
+let walkTotal = 0, lastWalk = null;
+function openWalk() { $('wN').value = '1'; $('wMsg').textContent = ''; walkTotal = 0; lastWalk = null; $('wUndo').hidden = true; $('wsheet').hidden = false; }
+$('wClose').onclick = () => { $('wsheet').hidden = true; };
+$('wMinus').onclick = () => { $('wN').value = Math.max(1, toInt($('wN').value) - 1); };
+$('wPlus').onclick = () => { $('wN').value = Math.min(99, toInt($('wN').value) + 1); };
+$('wUndo').onclick = async () => {
+  if (!lastWalk) return;
+  try { const d = await db.collection('tickets').doc(lastWalk).get(); const n = d.exists ? d.data().people : 0; await db.collection('tickets').doc(lastWalk).delete(); walkTotal -= n; lastWalk = null; $('wUndo').hidden = true; $('wMsg').style.color = 'var(--sub)'; $('wMsg').textContent = `取り消しました（この画面で合計${walkTotal}人）`; }
+  catch (e) { alert('取り消せませんでした：' + e.message); }
+};
+$('wGo').onclick = async () => {
+  const n = toInt($('wN').value), msg = $('wMsg');
+  if (n < 1 || n > 99) { msg.style.color = 'var(--bad)'; msg.textContent = '1〜99の人数を入力してください'; return; }
+  const newRef = db.collection('tickets').doc(); $('wGo').disabled = true;
+  try {
+    await db.runTransaction(async tx => {
+      const ref = counter(), c = await tx.get(ref), w0 = c.exists ? c.data().wLast || 0 : 0, now = Date.now();
+      tx.set(ref, { wLast: w0 + 1 }, { merge: true });
+      tx.set(newRef, { day: today(), number: -(100000 + w0 + 1), name: '人数のみ', people: n, status: 'inroom', createdAt: now, enteredAt: now, walkin: true });
+    });
+    walkTotal += n; $('wN').value = '1'; msg.style.color = 'var(--ok)'; msg.textContent = `${n}人を記録しました（この画面で合計${walkTotal}人）`;
+    lastWalk = newRef.id; $('wUndo').hidden = false;
+  } catch (e) { msg.style.color = 'var(--bad)'; msg.textContent = '記録できませんでした：' + e.message; }
+  $('wGo').disabled = false;
+};
 
 /* ---------- 管理メニュー ---------- */
 $('gearBtn').onclick = () => {
@@ -492,10 +560,6 @@ $('gearBtn').onclick = () => {
   const wOn = cfg.showWait !== false;
   $('waitBox').innerHTML = `<div style="font-weight:800">お客さん画面の待ち時間表示：${wOn ? 'オン' : 'オフ'}</div><div style="font-size:14px;color:#5a6378">オフにすると、「約○分」「○時ごろ」の目安を出さず、「あと○組」だけを表示します。</div><button id="waitBtn" class="full ${wOn ? '' : 'btn-ok'}" style="min-height:52px">${wOn ? '待ち時間を非表示にする' : '待ち時間を表示する'}</button>`;
   $('waitBtn').onclick = () => counter().set({ showWait: !wOn }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
-  $('pushBox').innerHTML = PUSH_URL
-    ? `<div style="font-weight:800">画面を閉じていても届く通知</div><div style="font-size:14px;color:#5a6378">通知サーバーにつながるかを確認します。</div><button id="pushChk" class="full" style="min-height:52px">通知サーバーを確認する</button>`
-    : `<div style="font-weight:800">画面を閉じていても届く通知：未設定</div><div style="font-size:14px;color:#5a6378">push-worker/SETUP.md の手順で設定すると使えます。</div>`;
-  if ($('pushChk')) $('pushChk').onclick = async () => { try { const r = await fetch(PUSH_URL + '/vapid'); const t = await r.text(); alert(r.ok && t.length > 60 ? '通知サーバーにつながりました。' : '通知サーバーから、想定外の返事がありました：' + t.slice(0, 120)); } catch (e) { alert('通知サーバーにつながりませんでした。URLを確認してください。'); } };
   const mOn = cfg.multiTicket !== false;
   $('multiBox').innerHTML = `<div style="font-weight:800">待機中でも新しい整理券を発行できる：${mOn ? 'オン' : 'オフ'}</div><div style="font-size:14px;color:#5a6378">オンの間は、お客さん画面の下に「別の整理券を発行する」が出ます（動作確認用）。本番では、オフにしてください。</div><button id="multiBtn" class="full ${mOn ? '' : 'btn-ok'}" style="min-height:52px">${mOn ? 'オフにする' : 'オンにする'}</button>`;
   $('multiBtn').onclick = () => counter().set({ multiTicket: !mOn }, { merge: true }).then(() => { $('menu').hidden = true; }).catch(e => alert('変更できませんでした：' + e.message));
@@ -508,8 +572,6 @@ async function deleteTickets(filter) {
   const snap = await db.collection('tickets').where('day', '==', today()).get();
   const docs = snap.docs.filter(d => filter(d.data()));
   const ids = new Set(docs.map(d => d.id));
-  const subs = (await db.collection('pushSubs').where('day', '==', today()).get().catch(() => ({ docs: [] }))).docs.filter(d => ids.has(d.id));
-  for (let i = 0; i < subs.length; i += 400) { const b = db.batch(); subs.slice(i, i + 400).forEach(d => b.delete(d.ref)); await b.commit(); }
   for (let i = 0; i < docs.length; i += 400) { const b = db.batch(); docs.slice(i, i + 400).forEach(d => b.delete(d.ref)); await b.commit(); }
   return docs.length;
 }
@@ -518,19 +580,19 @@ $('testDel').onclick = async () => {
   try {
     const n = await deleteTickets(t => t.test === true);
     const rest = (await db.collection('tickets').where('day', '==', today()).get()).docs.length;
-    if (rest === 0) await counter().set({ last: 0 }, { merge: true });
+    if (rest === 0) await counter().set({ last: 0, qLast: 0, wLast: 0 }, { merge: true });
     alert(`${n}件を削除しました${rest === 0 ? '。番号を1番に戻しました。' : '。'}`);
   } catch (e) { alert('削除できませんでした：' + e.message); }
 };
 $('resetBtn').onclick = async () => {
   if ($('resetIn').value.trim() !== 'リセット') return;
-  try { await deleteTickets(() => true); await counter().set({ last: 0 }, { merge: true }); $('menu').hidden = true; alert('リセットしました。'); }
+  try { await deleteTickets(() => true); await counter().set({ last: 0, qLast: 0, wLast: 0 }, { merge: true }); $('menu').hidden = true; alert('リセットしました。'); }
   catch (e) { alert('リセットできませんでした：' + e.message); }
 };
 $('csvBtn').onclick = () => {
   const st = { waiting: '順番待ち', called: '呼び出し中', inroom: '入室済み', guided: '入室済み', absent: '欠席', cancelled: 'キャンセル' };
-  const rows = [['番号', 'ニックネーム', '人数', '状態', '発行時刻', '呼び出し時刻', '入室時刻', '無効の理由', '待った時間（分）', 'テスト', '紙']].concat(
-    list.map(t => [t.number, t.name || '', t.people, st[t.status] || t.status, fmtT(t.createdAt), fmtT(t.calledAt), fmtT(t.enteredAt), reasonOf(t), t.createdAt && (t.calledAt || endOf(t)) ? Math.round(((t.calledAt || endOf(t)) - t.createdAt) / 60000) : '', t.test ? 'テスト' : '', t.paper ? '紙' : '']));
+  const rows = [['番号', 'ニックネーム', '人数', '状態', '発行時刻', '呼び出し時刻', '入室時刻', '無効の理由', '待った時間（分）', 'テスト', '種類']].concat(
+    list.map(t => [nl(t), t.name || '', t.people, st[t.status] || t.status, fmtT(t.createdAt), fmtT(t.calledAt), fmtT(t.enteredAt), reasonOf(t), t.createdAt && (t.calledAt || endOf(t)) ? Math.round(((t.calledAt || endOf(t)) - t.createdAt) / 60000) : '', t.test ? 'テスト' : '', kindOf(t)]));
   const text = '\ufeff' + rows.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(',')).join('\r\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = `seiriken-${today()}.csv`; a.click();
 };

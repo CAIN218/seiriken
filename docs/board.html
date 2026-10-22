@@ -21,8 +21,8 @@ h1{margin:0;text-align:center;font-size:clamp(1.2rem,min(3vw,5vh),2.6rem);letter
 .next{grid-area:next}
 .wc{font-size:clamp(1.6rem,min(4.4vw,7.5vh),4.2rem);font-weight:900;color:#2f5d50;line-height:1.1;margin-bottom:.6vh}
 .wc b{font-size:1.5em;font-variant-numeric:tabular-nums}
-#up{display:flex;flex-wrap:wrap;justify-content:center;gap:.8vw;margin-top:1vh}
-#up .chip{font-size:clamp(1.4rem,min(4.2vw,7vh),4rem);background:#eef0f3;border-color:#eef0f3}
+#up{display:flex;flex-wrap:nowrap;justify-content:center;gap:.8vw;margin-top:1vh}
+#up .chip{flex:1 1 0;min-width:0;text-align:center;font-size:clamp(1.3rem,min(3.4vw,6vh),3.4rem);background:#eef0f3;border-color:#eef0f3}
 .qr{grid-area:qr;display:flex;align-items:center;justify-content:center;gap:2vw;min-height:0}
 .qr[hidden]{display:none}
 #qr{height:min(30vh,20vw);width:min(30vh,20vw);flex:none}
@@ -49,13 +49,15 @@ h1{margin:0;text-align:center;font-size:clamp(1.2rem,min(3vw,5vh),2.6rem);letter
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
-<script src="firebase-config.js?v=35"></script><script src="common.js?v=35"></script>
+<script src="firebase-config.js?v=37"></script><script src="common.js?v=37"></script>
 <script>
 const $ = id => document.getElementById(id);
 const ISSUE_URL = 'https://cain218.github.io/seiriken/';
 $('ttl').textContent = EVENT_TITLE;
 let sm = {}, cfg = {}, prev = null;
 const fresh = {}; // 新しく呼ばれた番号 → 呼ばれた時刻
+// 番号のない組（列から切り替えた組）は「列」と表示する
+const fmtN = n => n > 0 ? n : '列';
 const fmtHM = ms => new Date(ms).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false });
 
 // QR（ライブラリで作り、SVGにして描く。読み込めなかったときは何も出さない）
@@ -70,21 +72,21 @@ try {
 function fit() {
   const box = $('called'), ns = (sm.called || []);
   const n = ns.length; if (!n) return;
-  const W = box.clientWidth, H = box.clientHeight, digits = Math.max(...ns.map(x => String(x).length));
+  const W = box.clientWidth, H = box.clientHeight, digits = Math.max(...ns.map(x => String(fmtN(x)).length));
   const wf = digits * 0.62 + 0.9, hf = 1.15 + 0.25; // 1つ分の幅・高さ（文字サイズ比）
   let best = { fs: 0, cols: 1 };
   for (let cols = 1; cols <= n; cols++) {
     const rows = Math.ceil(n / cols), fs = Math.min(W / cols / (wf + 0.4), H / rows / hf, innerHeight * 0.2);
-    if (fs > best.fs) best = { fs, cols };
+    if (fs >= best.fs) best = { fs, cols };
   }
   box.style.setProperty('--cols', best.cols); box.style.fontSize = Math.floor(best.fs) + 'px';
 }
 function render() {
   const ns = sm.called || [];
-  $('called').innerHTML = ns.length ? ns.map(n => `<span class="chip ${fresh[n] && Date.now() - fresh[n] < 5000 ? 'new' : ''}">${n}</span>`).join('') : '<div class="none">呼び出し中の組はありません</div>';
+  $('called').innerHTML = ns.length ? ns.map(n => `<span class="chip ${fresh[n] && Date.now() - fresh[n] < 5000 ? 'new' : ''}">${fmtN(n)}</span>`).join('') : '<div class="none">呼び出し中の組はありません</div>';
   if (!ns.length) $('called').style.fontSize = ''; else fit();
   $('wc').textContent = sm.waitCount || 0;
-  $('up').innerHTML = (sm.line || []).slice(0, 5).map(n => `<span class="chip">${n}</span>`).join('') || '<span class="none">なし</span>';
+  $('up').innerHTML = (sm.line || []).slice(0, 5).map(n => `<span class="chip">${fmtN(n)}</span>`).join('') || '<span class="none">なし</span>';
   // 発行できないとき（停止中）は、QRを隠して案内を出す
   const closed = !!cfg.closed;
   $('qrBox').hidden = closed; $('stopBox').hidden = !closed;
