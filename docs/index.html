@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=41"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=42"></head>
 <body class="st-none"><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=41"></script><script src="common.js?v=41"></script>
+<script src="firebase-config.js?v=42"></script><script src="common.js?v=42"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -43,13 +43,13 @@ function pickMe() {
 }
 function subMe() {
   unsubsMe.forEach(u => u()); unsubsMe = [];
-  if (!myIds.length) { me = null; render(); return; }
+  if (!myIds.length) { me = null; syncSum(); render(); return; }
   myIds.slice().forEach(id => {
     unsubsMe.push(db.collection('tickets').doc(id).onSnapshot({ includeMetadataChanges: true }, d => {
       okSnap(d);
       if (!d.exists) { delete mine[id]; myIds = myIds.filter(x => x !== id); saveIds(); }
       else { const t = { id, ...d.data() }; if (t.status === 'arrived') t.status = 'inroom'; if (t.status === 'skipped') t.status = 'called'; mine[id] = t; }
-      pickMe(); render();
+      pickMe(); syncSum(); render();
     }));
   });
 }
@@ -300,12 +300,25 @@ const stamp = () => { const e = document.getElementById('last'); if (e) e.textCo
 const okSnap = d => { if (!d.metadata.fromCache) { lastOk = Date.now(); stamp(); } };
 function subAll() {
   unsubs.forEach(u => u()); unsubs = [];
-  unsubs.push(db.collection('counters').doc(today()).onSnapshot({ includeMetadataChanges: true }, d => { okSnap(d); cfg = d.exists ? d.data() : {}; render(); }));
-  unsubs.push(summaryRef().onSnapshot({ includeMetadataChanges: true }, d => { okSnap(d); sum = d.exists ? d.data() : {}; render(); }));
-  subMe();
+  if (unsubSum) { unsubSum(); unsubSum = null; }
+  subMe(); syncSum();
+}
+// 集計の購読。入室・取り消しなどで券が全部終わった人は、もう集計の更新を読む必要がないので止める（読み取りの節約）
+let unsubSum = null;
+function subSum() {
+  if (unsubSum) unsubSum();
+  unsubSum = summaryRef().onSnapshot({ includeMetadataChanges: true }, d => { okSnap(d); sum = d.exists ? d.data() : {}; cfg = sum.cfg || {}; render(); });
+}
+function syncSum() {
+  const ts = myIds.map(id => mine[id]).filter(Boolean);
+  const finished = ts.length > 0 && ts.length === myIds.length && ts.every(t => ['inroom', 'guided', 'cancelled', 'absent'].includes(t.status));
+  if (finished && unsubSum) { unsubSum(); unsubSum = null; }
+  else if (!finished && !unsubSum) subSum();
 }
 // 別のアプリから戻ったときや、通信が復活したときは、つなぎ直して最新の状態を取り直す
-document.addEventListener('visibilitychange', () => { if (!document.hidden) subAll(); });
+// 数秒切り替えただけなら読み直さない（つなぎ直すと読み取りが増える）。しばらく離れていたときだけ取り直す
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else if (Date.now() - hiddenAt > 60000) subAll(); });
 addEventListener('pageshow', e => { if (e.persisted) subAll(); });
 addEventListener('online', subAll);
 subAll();

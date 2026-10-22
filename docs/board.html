@@ -49,7 +49,7 @@ h1{margin:0;text-align:center;font-size:clamp(1.2rem,min(3vw,5vh),2.6rem);letter
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
-<script src="firebase-config.js?v=41"></script><script src="common.js?v=41"></script>
+<script src="firebase-config.js?v=42"></script><script src="common.js?v=42"></script>
 <script>
 const $ = id => document.getElementById(id);
 const ISSUE_URL = 'https://cain218.github.io/seiriken/';
@@ -97,20 +97,22 @@ function render() {
   stale();
 }
 function stale() {
-  const u = sm.updatedAt, f = $('foot');
+  const u = Math.max(sm.updatedAt || 0, beat), f = $('foot');
   if (!u || Date.now() - u > 120000) { f.textContent = '表示が止まっています（スタッフ画面を開いてください）'; f.className = 'foot warn'; }
   else { f.textContent = '最終更新 ' + fmtHM(u); f.className = 'foot'; }
 }
 setInterval(stale, 10000);
 addEventListener('resize', () => { if ((sm.called || []).length) fit(); });
 summaryRef().onSnapshot(d => {
-  sm = d.exists ? d.data() : {};
+  sm = d.exists ? d.data() : {}; cfg = sm.cfg || {};
   const now = Date.now(), cur = sm.called || [];
   if (prev) cur.forEach(n => { if (!prev.includes(n)) { fresh[n] = now; setTimeout(render, 5100); } });
   prev = cur.slice();
   render();
 });
-db.collection('counters').doc(today()).onSnapshot(d => { cfg = d.exists ? d.data() : {}; render(); });
+// 止まっていないかの確認用（スタッフ画面が1分ごとに書く）
+let beat = 0;
+heartbeatRef().onSnapshot(d => { beat = d.exists ? d.data().updatedAt || 0 : 0; stale(); });
 
 // タップで全画面にして、画面が消えないようにする（失敗しても何も出さない）
 let lock = null, wantLock = false;

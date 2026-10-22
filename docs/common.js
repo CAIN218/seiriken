@@ -44,7 +44,12 @@ function watchTickets(cb) {
 
 // お客さん・モニター向けの集計（スタッフ画面が書き込む。読み取り回数を減らすため）
 const summaryRef = () => db.collection('summary').doc(today());
-function buildSummary(list) {
+// 発券の停止・待ち時間表示などの設定（counters）も集計に含める。お客さん・モニターは counters を読まずに済み、発券のたびの読み取りが減る
+const CFG_KEYS = ['closed', 'closedReason', 'reopenAt', 'showWait', 'multiTicket'];
+const pickCfg = c => { const o = {}; CFG_KEYS.forEach(k => { if (c && c[k] !== undefined) o[k] = c[k]; }); return o; };
+// 止まっていないことを示す時刻は、お客さんが読む集計とは別のドキュメントに書く（集計に書くと全員が毎分読むことになる）
+const heartbeatRef = () => db.collection('summary').doc(today() + '-hb');
+function buildSummary(list, cfg) {
   const ct = currentTicket(list);
   // 呼び出し間隔（直近6回、20分以上空いた間隔は休憩とみなして除外）
   const calls = list.map(t => t.calledAt || 0).filter(x => x > 0).sort((a, b) => a - b);
@@ -59,7 +64,8 @@ function buildSummary(list) {
     waitCount: list.filter(isActive).length,
     roomCount: list.filter(inRoom).length,
     called: list.filter(inRoom).sort((a, b) => calledAtOf(a) - calledAtOf(b)).map(t => t.number), // 呼び出し中の番号（モニター用。呼んだ順）
-    avgGapSec: gaps.length >= 2 ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null
+    avgGapSec: gaps.length >= 2 ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null,
+    cfg: pickCfg(cfg)
   };
 }
 // 現在呼び出し中の組（最後に呼んだ組）

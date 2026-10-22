@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=41"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=42"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -105,7 +105,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=41"></script><script src="common.js?v=41"></script>
+<script src="firebase-config.js?v=42"></script><script src="common.js?v=42"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -291,14 +291,13 @@ let lastSummary = '', sumTimer = null;
 function scheduleSummary() {
   clearTimeout(sumTimer);
   sumTimer = setTimeout(() => {
-    const sm = buildSummary(list), js = JSON.stringify(sm);
+    const sm = buildSummary(list, cfg), js = JSON.stringify(sm);
     if (js === lastSummary) return;
     summaryRef().set({ ...sm, updatedAt: Date.now() }).then(() => { lastSummary = js; }).catch(() => {});
-  }, 800);
+  }, 1500);
 }
 
-// モニターが「止まっていない」と分かるよう、内容が変わらなくても1分ごとに更新時刻だけ書き直す
-setInterval(() => { if (auth.currentUser && lastSummary) summaryRef().set({ ...buildSummary(list), updatedAt: Date.now() }).catch(() => {}); }, 60000);
+// モニターは使わないので、1分ごとの更新時刻の書き込みはしない（board.html を使う場合は heartbeatRef() に書く）
 
 /* ---------- 操作（クリック・長押し） ---------- */
 document.addEventListener('click', e => {
@@ -664,9 +663,11 @@ auth.onAuthStateChanged(u => {
 function startWatch() {
   if (unsub) unsub(); if (unsubCnt) unsubCnt();
   unsub = watchTickets((l, cached) => { list = l; cachedSince = cached ? (cachedSince || Date.now()) : 0; updateOffline(); render(); });
-  unsubCnt = counter().onSnapshot(d => { cfg = d.exists ? d.data() : {}; render(); if (!$('menu').hidden) renderMenu(); });
+  unsubCnt = counter().onSnapshot(d => { cfg = d.exists ? d.data() : {}; render(); scheduleSummary(); if (!$('menu').hidden) renderMenu(); });
 }
 // 別のアプリから戻ったときや、通信が復活したときは、つなぎ直して最新の状態を取り直す
-document.addEventListener('visibilitychange', () => { if (!document.hidden && auth.currentUser) startWatch(); });
+// 一覧を取り直すと全件を読み直すので、少し見ていなかっただけなら、つなぎ直さない
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else if (auth.currentUser && Date.now() - hiddenAt > 60000) startWatch(); });
 addEventListener('online', () => { if (auth.currentUser) startWatch(); });
 </script></body></html>
