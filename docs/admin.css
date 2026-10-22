@@ -130,3 +130,15 @@ h2{font-size:18px;color:var(--fg);border-left:6px solid var(--line);padding-left
 .ico{font-size:14px;font-weight:800;min-width:0;padding:0 10px}
 .pmark{display:inline-block;font-size:11px;font-weight:800;line-height:1;padding:2px 4px;border:1.5px solid var(--sub);border-radius:5px;color:var(--sub);vertical-align:1px}
 .hrow .ico2,.modal.big .ico2{width:auto;min-width:64px;padding:0 12px;font-size:15px;font-weight:800}
+
+/* v36 見直し */
+/* パソコン・横向きタブレットで、番号とボタンが離れすぎないよう幅をしぼる */
+.inner,.wrap{max-width:720px}
+.stats{font-size:15px}
+@media(min-width:720px){
+  .paperbtn{font-size:15px;padding:0 12px}
+  .ico{font-size:15px}
+  .usrbtn{font-size:15px}
+  .row .num{font-size:34px}
+  .rsub .el{font-size:18px}
+}

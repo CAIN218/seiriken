@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=35"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="admin.css?v=36"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -19,7 +19,7 @@
     <div id="stopNote"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v35</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v36</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -76,7 +76,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=35"></script><script src="common.js?v=35"></script>
+<script src="firebase-config.js?v=36"></script><script src="common.js?v=36"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -216,7 +216,7 @@ function render() {
   $('callNext').disabled = !line.length;
   $('callNext').textContent = line.length ? `次の組を呼ぶ（${line[0].number}番）` : '呼び出せる組はありません';
   const nBad = list.filter(isInvalid).length;
-  $('stats').innerHTML = `<span>待ち <b>${line.length}</b></span><span>呼出中 <b>${room.length}</b></span><span>入室済み <b>${done.length}</b></span><button id="statBad" class="statlink">無効 <b>${nBad}</b></button>`;
+  $('stats').innerHTML = `<span>待ち <b>${line.length}</b></span><span>呼び出し中 <b>${room.length}</b></span><span>入室済み <b>${done.length}</b></span><button id="statBad" class="statlink">無効 <b>${nBad}</b></button>`;
   $('statBad').onclick = () => { hFilter = 'bad'; $('hq').value = ''; $('hist').hidden = false; renderHist(); };
   $('stopNote').innerHTML = cfg.closed ? `<div class="notice stop">発券を停止中${cfg.closedReason ? '：' + esc(cfg.closedReason) : ''}</div>` : '';
   document.body.style.background = cfg.closed ? '#f3e4e4' : '';
