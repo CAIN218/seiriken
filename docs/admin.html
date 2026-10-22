@@ -222,6 +222,7 @@ function callNext() {
   const line = list.filter(inLine).sort(byOrder);
   if (!line.length) return;
   const t = line[0];
+  if (t.queue) return act.enterw(t); // 列の組は、呼ぶとそのまま入室済みにする
   txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now() }), `${nm(t)}を呼び出しました`)
 }
 
