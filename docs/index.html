@@ -313,7 +313,7 @@ function netUpdate() {
     cls = 'bad'; html = `<b>通信が切れています（${ago(now - offSince)}前から）</b><br>順番が進んでも、この画面には反映されません。電波のよい場所に移動してください。自動でつなぎ直しています。<small>（エラーコード WT-N1）</small>`;
     if (now - retryAt > 60000) { retryAt = now; subAll(); }
   } else if (staffStale) {
-    cls = 'warn'; html = `<b>スタッフ側の更新が止まっているようです（${ago(staffStale)}以上）</b><br>順番が進んでいない可能性があります。会場のスタッフにお声がけください。<small>（エラーコード WT-S3）</small>`;
+    cls = 'warn'; html = `<b>順番の更新が止まっているようです（${ago(staffStale)}以上）</b><br>順番が進んでいない可能性があります。会場のスタッフにお声がけください。<small>（エラーコード WT-S3）</small>`;
   } else if (backAt && now - backAt < 4000) {
     cls = 'ok'; html = '<b>つながりました</b>　最新の状態に更新しました。';
   }
