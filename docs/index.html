@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=53"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=56"></head>
 <body class="st-none"><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=53"></script><script src="common.js?v=53"></script>
+<script src="firebase-config.js?v=56"></script><script src="common.js?v=56"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -18,8 +18,8 @@ const showWait = () => waitModeOf(cfg) !== 'off';
 const gapSec = () => gapSecOf(cfg, sum.avgGapSec);
 const fmtHM = d => d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false });
 const fmtHMS = ms => new Date(ms).toLocaleTimeString('ja-JP', { hour12: false });
-// 戻ってきてほしい時刻（5分単位の目安）
-function etaText(ahead) { const t = Date.now() + (ahead + 1) * gapSec() * 1000; return fmtHM(new Date(Math.round(t / 300000) * 300000)); }
+// 今から、あと何分くらいか（あと○組ぶん）
+const waitMin = n => waitMinutes(n, cfg, sum.avgGapSec);
 
 const vibrate = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }; // 半券をなぞるときの手ごたえだけに使う
 
@@ -117,8 +117,8 @@ const usrTag = () => me && me.name ? `<div class="usr">${esc(me.name)}さん</di
 const tkHead = `<div class="tk-band"><span>${esc(EVENT_TITLE)}</span><small>整理券</small></div>`;
 
 function viewIssue() {
-  const wc = sum.waitCount || 0, mins = Math.round(wc * gapSec() / 60);
-  const head = `<div class="card c"><div class="lab">現在の待ち</div><div class="huge">${wc}<span class="h1">組</span></div><div class="p">${wc ? (showWait() ? `待ち時間の目安：約${Math.max(1, mins)}分` : '') : '待ちはありません。すぐにご案内できます。'}</div></div>`;
+  const wc = sum.waitCount || 0, mins = waitMin(wc);
+  const head = `<div class="card c"><div class="lab">現在の待ち</div><div class="huge">${wc}<span class="h1">組</span></div><div class="p">${wc ? (showWait() ? `待ち時間の目安：約${mins}分` : '') : '待ちはありません。すぐにご案内できます。'}</div></div>`;
   if (cfg.closed) {
     return shell('stop', head + `<div class="card c"><div class="h1">ただいま整理券の発行を<br>一時停止しています</div>
       ${cfg.closedReason ? `<p class="p">理由：${esc(cfg.closedReason)}</p>` : ''}
@@ -161,12 +161,12 @@ function viewTicket() {
 
   // 順番待ち（発行したときから、チケットの形で表示する）
   const soon = ahead <= SOON_AHEAD;
-  const eta = etaText(ahead);
+  const etaM = waitMin(ahead + 1), eta = `約${etaM}分後（${fmtHM(new Date(Date.now() + etaM * 60000))}ごろ）`;
   const aheadTxt = `あと${ahead + 1}<span class="h1">組</span>`; // あと1組＝次に呼ばれる
-  const info = `<div class="tk-eta"><div class="huge" style="font-size:clamp(44px,14vw,64px)">${aheadTxt}</div><div class="p">${soon ? 'まもなくお呼びします' : showWait() ? `目安：${eta}ごろ` : 'この画面でお待ちください'}</div></div>`;
+  const info = `<div class="tk-eta"><div class="huge" style="font-size:clamp(44px,14vw,64px)">${aheadTxt}</div><div class="p">${soon ? 'まもなくお呼びします' : showWait() ? `目安：${eta}` : 'この画面でお待ちください'}</div></div>`;
   const top = (soon ? '<div class="h1 c" style="font-size:clamp(22px,6.4vw,30px)">会場の近くでお待ちください</div>' : '')
     + `<div class="tk wait">${body(info)}${perf(false)}<div class="tk-stub">${stubHtml(false)}</div></div>`
-    + (soon ? '' : `<div class="card p">${showWait() ? eta + 'ごろに、会場へお戻りください。' : ''}この画面を開いたままお待ちください。順番が来ると、表示が変わります。</div>`);
+    + (soon ? '' : `<div class="card p">${showWait() ? eta + 'に、会場へお戻りください。' : ''}この画面を開いたままお待ちください。順番が来ると、表示が変わります。</div>`);
   return shell(soon ? 'soon' : 'wait', top, cancelBtn());
 }
 
@@ -205,7 +205,7 @@ const NOTICE_KEY = 'seiriken-notice-' + today();
 function showNotice() {
   try { if (localStorage.getItem(NOTICE_KEY)) return; } catch (e) {}
   const el = document.createElement('div'); el.className = 'ov'; el.id = 'notice';
-  el.innerHTML = '<div class="dlg" role="dialog" aria-modal="true"><div class="h1 c">ご確認ください</div><ul class="nl"><li>生徒が開発しているので、万が一不具合があれば受付にお越しください。</li><li>待ち時間は目安です。</li></ul><button class="btn" id="noticeOk">確認しました</button></div>';
+  el.innerHTML = '<div class="dlg" role="dialog" aria-modal="true"><div class="h1 c">ご確認ください</div><ul class="nl"><li>生徒が開発しているので、万が一不具合があれば受付にお越しください。</li><li>待ち時間は目安です。</li><li>通知は来ないので、開いたままにしておいてください。</li></ul><button class="btn" id="noticeOk">確認しました</button></div>';
   document.body.appendChild(el);
   document.getElementById('noticeOk').onclick = () => { try { localStorage.setItem(NOTICE_KEY, '1'); } catch (e) {} el.remove(); };
 }
