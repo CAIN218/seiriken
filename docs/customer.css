@@ -216,3 +216,7 @@ body.st-none .tk-main.full{background:#fff}
 textarea.field{font-size:17px;min-height:0;resize:none}
 .msgc{margin-top:8px;padding:12px 14px;border-radius:14px;background:#fff7d6;border:2px solid #e3c96a;color:#4a3a00;text-align:left}
 .msgc b{display:block;font-size:14px;color:#7a5f00}.msgc .mt{font-size:18px;font-weight:800;line-height:1.45}.msgc small{color:#7a5f00}
+
+.msgc .mf{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+.msgc .btn{min-height:44px;font-size:16px;width:auto;padding:0 18px;border-radius:12px;background:#fff;color:#4a3a00;border:2px solid #c9a93a}
+.msgc.all{background:#e8f0fb;border-color:#9db8e0;color:#1f3350}.msgc.all b,.msgc.all small{color:#3a5a8a}.msgc.all .btn{color:#1f3350;border-color:#9db8e0}

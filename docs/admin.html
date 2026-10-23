@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=49"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=50"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -23,7 +23,7 @@
     <div id="stopNote"></div><div id="reports"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v49</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v50</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -83,6 +83,8 @@
 <div id="menu" class="modal big" hidden><div class="sheet">
   <div class="shead"><h3>設定</h3><button id="menuClose2" class="xbtn">閉じる</button></div>
   <a class="cust-link btn-like" href="index.html">お客さん用の発行画面を開く</a>
+  <h4 class="sec">全員にお知らせ</h4>
+  <div class="box" id="noticeBox"></div>
   <h4 class="sec">整理券の発行</h4>
   <div class="box" id="stopBox"></div>
   <h4 class="sec">お客さん画面</h4>
@@ -108,7 +110,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=49"></script><script src="common.js?v=49"></script>
+<script src="firebase-config.js?v=50"></script><script src="common.js?v=50"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -255,7 +257,7 @@ function render() {
   $('statBad').onclick = () => { hFilter = 'bad'; hKind = 'all'; $('hq').value = ''; $('hist').hidden = false; renderHist(); };
   const reps = list.filter(t => t.report && t.reportAt > (t.reportDoneAt || 0)).sort((a, b) => b.reportAt - a.reportAt);
   $('reports').innerHTML = reps.length ? `<div class="repbox"><b>お客さんから連絡 ${reps.length}件</b>${reps.map(t => `<div class="repi"><div class="rt"><span class="rn">${nl(t)}</span> ${esc(t.name || '')}　<small>${fmtT(t.reportAt)}</small></div><div class="rm">${esc(t.report)}${t.reportCode ? `<small>（コード ${esc(t.reportCode)}）</small>` : ''}</div><div class="ra"><button class="mini" data-repopen="${t.id}">メッセージを送る</button><button class="mini ok" data-repdone="${t.id}">確認した</button></div></div>`).join('')}</div>` : '';
-  $('stopNote').innerHTML = cfg.closed ? `<div class="notice stop">発券を停止中${cfg.closedReason ? '：' + esc(cfg.closedReason) : ''}</div>` : '';
+  $('stopNote').innerHTML = (cfg.closed ? `<div class="notice stop">発券を停止中${cfg.closedReason ? '：' + esc(cfg.closedReason) : ''}</div>` : '') + (cfg.notice ? `<div class="notice info">全員にお知らせ表示中：${esc(cfg.notice)}</div>` : '');
   document.body.style.background = cfg.closed ? '#f3e4e4' : '';
 
   const rowHtml = (t, i) => {
@@ -264,7 +266,7 @@ function render() {
     const right = called ? (t.paper ? `<button class="mini ok" data-a="enter" data-id="${t.id}">入室済みにする</button>` : '') : t.queue ? `<button class="mini ok" data-a="enterw" data-id="${t.id}">入室済み</button>` : `<span class="dh" data-drag="${t.id}" aria-label="長押ししてドラッグで並べ替え">≡</span>`;
     const ack = called && !t.paper ? (t.seenAt ? `<span class="ack ok">届いた ${fmtT(t.seenAt)}</span>` : '<span class="ack no" hidden>未確認</span>') : '';
     return `<div class="row ${t.status}" data-id="${t.id}" data-since="${(called ? t.calledAt : t.createdAt) || ''}" data-kind="${called ? 'call' : 'wait'}" data-late="${called ? 1 : 0}">
-      <div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span><span class="el"></span>${ack}${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
+      <div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span><span class="el"></span>${ack}${t.msg ? `<span class="ack ${t.msgAckAt >= t.msgAt ? 'ok' : t.msgSeenAt >= t.msgAt ? 'ok' : 'no'}">連絡：${t.msgAckAt >= t.msgAt ? '確認済み' : t.msgSeenAt >= t.msgAt ? '届いた' : '未着'}</span>` : ''}${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
   };
   const doneHtml = t => `<div class="row inroom" data-id="${t.id}"><div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill inroom">${t.torn ? '入室済み（もぎり）' : '入室済み'}</span><span class="el" style="font-size:14px">${fmtT(t.enteredAt)}</span></div></div></div></div>`;
   $('lists').innerHTML = `<div class="grid">
@@ -425,7 +427,7 @@ function renderSheet() {
   $('rsTitle').innerHTML = `${nm(t)}　${label(t)}　<span class="pill ${isDone(t) ? 'inroom' : t.status}">${stateName(t)}</span>`;
   const canMsg = !t.paper && !t.queue && !t.walkin && ['waiting', 'called'].includes(t.status);
   const msgBox = canMsg ? `<details class="msgbox" ${t.msg ? 'open' : ''}><summary>お客さんにメッセージを送る</summary>
-    ${t.msg ? `<div class="msgnow">送信中：「${esc(t.msg)}」<button class="mini" data-msgclear="${t.id}">消す</button></div>` : ''}
+    ${t.msg ? `<div class="msgnow"><div>送信中：「${esc(t.msg)}」<br><b>${msgState(t)}</b></div><button class="mini" data-msgclear="${t.id}">消す</button></div>` : ''}
     <div class="msgpre">${MSG_PRESETS.map((m, i) => `<button class="mini" data-msgpre="${i}">${esc(m)}</button>`).join('')}</div>
     <textarea id="msgText" data-id="${t.id}" rows="2" maxlength="100" placeholder="メッセージ（100文字まで）"></textarea>
     <button class="sbtn btn-ok" id="msgSend" data-id="${t.id}">この内容を送る</button></details>` : '';
@@ -435,14 +437,17 @@ function renderSheet() {
   const nw = $('msgText'); if (keep && nw && keep.id === t.id) { nw.value = keep.v; nw.closest('details').open = keep.o; if (keep.f) nw.focus(); }
 }
 // お客さんの券に表示するメッセージ（その券の分だけの書き込み。読み取りは増えない）
+// お客さんの側の状態：送った → 画面に出た（届いた）→ 「確認しました」を押した
+const msgState = t => t.msgAckAt && t.msgAckAt >= t.msgAt ? `確認済み ${fmtT(t.msgAckAt)}` : t.msgSeenAt && t.msgSeenAt >= t.msgAt ? `届いた ${fmtT(t.msgSeenAt)}（まだ確認ボタンは押されていません）` : '未着（お客さんの画面にまだ出ていません）';
+const NOTICE_PRESETS = ['整理券の発行をいったん止めています', '呼び出しが遅れています。画面を開いたままお待ちください', '呼ばれた方は、受付までお越しください'];
 const MSG_PRESETS = ['まもなく呼びます。会場の近くでお待ちください', '受付までお越しください', '呼び出しに気づいたら、受付にお声がけください'];
 async function sendMsg(id, text) {
   text = (text || '').trim().slice(0, 100); if (!text) return;
-  try { await db.collection('tickets').doc(id).update({ msg: text, msgAt: Date.now() }); } catch (e) { alert(errText('MS', e)); }
+  try { await db.collection('tickets').doc(id).update({ msg: text, msgAt: Date.now(), msgSeenAt: del(), msgAckAt: del() }); } catch (e) { alert(errText('MS', e)); }
 }
 document.addEventListener('click', e => {
   const pre = e.target.closest('[data-msgpre]'); if (pre) { $('msgText').value = MSG_PRESETS[+pre.dataset.msgpre]; return; }
-  const clr = e.target.closest('[data-msgclear]'); if (clr) { db.collection('tickets').doc(clr.dataset.msgclear).update({ msg: del(), msgAt: del() }).catch(err => alert(errText('MS', err))); return; }
+  const clr = e.target.closest('[data-msgclear]'); if (clr) { db.collection('tickets').doc(clr.dataset.msgclear).update({ msg: del(), msgAt: del(), msgSeenAt: del(), msgAckAt: del() }).catch(err => alert(errText('MS', err))); return; }
   const snd = e.target.closest('#msgSend'); if (snd) sendMsg(snd.dataset.id, $('msgText').value);
   const rd = e.target.closest('[data-repdone]'); if (rd) { const t = list.find(x => x.id === rd.dataset.repdone); if (t) db.collection('tickets').doc(t.id).update({ reportDoneAt: t.reportAt }).catch(err => alert(errText('OP', err))); return; }
   const ro = e.target.closest('[data-repopen]'); if (ro) openSheet(ro.dataset.repopen);
@@ -648,6 +653,17 @@ function renderMenu() {
     saveCfg({ closed: true, closedReason: $('stopReason').value.trim(), reopenAt: $('reopenAt').value.trim() });
   };
   if ($('reopenBtn')) $('reopenBtn').onclick = () => saveCfg({ closed: false });
+  // 全員へのお知らせ：お客さんの画面の上に出る（整理券を持っていない人にも出る）。書き込みは1回、読み取りは開いている人の分だけ
+  const oldN = $('noticeText'), keepN = oldN ? { v: oldN.value, f: document.activeElement === oldN } : null;
+  $('noticeBox').innerHTML = `<div class="sdesc">いま開いている全員のお客さん画面の上に、お知らせを出します。${cfg.notice ? '' : '何も出していません。'}</div>
+    ${cfg.notice ? `<div class="msgnow"><div>表示中：「${esc(cfg.notice)}」<br><small>${fmtT(cfg.noticeAt)}から</small></div><button class="mini" id="noticeClear">消す</button></div>` : ''}
+    <div class="msgpre">${NOTICE_PRESETS.map((m, i) => `<button class="mini" data-npre="${i}">${esc(m)}</button>`).join('')}</div>
+    <textarea id="noticeText" rows="2" maxlength="100" placeholder="全員へのお知らせ（100文字まで）"></textarea>
+    <button class="full btn-ok" id="noticeSend">全員に出す</button>`;
+  { const n = $('noticeText'); if (keepN) { n.value = keepN.v; if (keepN.f) n.focus(); } }
+  document.querySelectorAll('[data-npre]').forEach(b => b.onclick = () => { $('noticeText').value = NOTICE_PRESETS[+b.dataset.npre]; });
+  $('noticeSend').onclick = () => { const v = $('noticeText').value.trim().slice(0, 100); if (!v) return; if (confirm(`全員に出します。よろしいですか？\n\n${v}`)) { $('noticeText').value = ''; saveCfg({ notice: v, noticeAt: Date.now() }); } };
+  if ($('noticeClear')) $('noticeClear').onclick = () => saveCfg({ notice: del(), noticeAt: del() });
   const wm = waitModeOf(cfg), wmin = cfg.waitMin > 0 ? cfg.waitMin : 3, mOn = cfg.multiTicket !== false;
   const avg = buildSummary(list).avgGapSec, wbtn = (id, k, t, s) => `<button id="${id}" class="${wm === k ? 'on' : ''}">${t}<small>${s}</small></button>`;
   $('custBox').innerHTML = `<div class="wbox"><div class="stitle">待ち時間の目安</div><div class="sdesc">お客さんに出す「約○分」「○時ごろ」の出し方です。</div>

@@ -45,7 +45,7 @@ function watchTickets(cb) {
 // お客さん・モニター向けの集計（スタッフ画面が書き込む。読み取り回数を減らすため）
 const summaryRef = () => db.collection('summary').doc(today());
 // 発券の停止・待ち時間表示などの設定（counters）も集計に含める。お客さん・モニターは counters を読まずに済み、発券のたびの読み取りが減る
-const CFG_KEYS = ['closed', 'closedReason', 'reopenAt', 'showWait', 'waitMode', 'waitMin', 'multiTicket'];
+const CFG_KEYS = ['closed', 'closedReason', 'reopenAt', 'showWait', 'waitMode', 'waitMin', 'multiTicket', 'notice', 'noticeAt'];
 // 待ち時間の目安：auto（実績から自動）／manual（1組○分の手入力）／off（表示しない）。古い設定（showWait）にも対応
 const waitModeOf = c => (c && c.waitMode) || (c && c.showWait === false ? 'off' : 'auto');
 const gapSecOf = (c, avg) => waitModeOf(c) === 'manual' && c.waitMin > 0 ? c.waitMin * 60 : (avg || DEFAULT_GAP_SEC);

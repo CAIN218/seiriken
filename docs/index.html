@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=49"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=50"></head>
 <body class="st-none"><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=49"></script><script src="common.js?v=49"></script>
+<script src="firebase-config.js?v=50"></script><script src="common.js?v=50"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -87,7 +87,7 @@ function leave() { myIds = []; mine = {}; selId = null; sig = ''; saveIds(); me 
 const allEnded = () => myIds.map(id => mine[id]).filter(Boolean).every(t => ['inroom', 'guided', 'cancelled', 'absent'].includes(t.status));
 
 /* ---------- 画面 ---------- */
-const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${tabsHtml()}${msgCard()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}${me ? '<div class="c"><button class="linkbtn" id="reportBtn">不具合を受付に知らせる</button></div>' : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div>${me ? '' : '<div class="c staffl"><a href="admin.html">スタッフ用ログイン</a></div>'}</div></div>`; };
+const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${noticeCard()}${tabsHtml()}${msgCard()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}${me ? '<div class="c"><button class="linkbtn" id="reportBtn">不具合を受付に知らせる</button></div>' : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div>${me ? '' : '<div class="c staffl"><a href="admin.html">スタッフ用ログイン</a></div>'}</div></div>`; };
 const tabState = t => ({ called: '呼び出し', waiting: '順番待ち', inroom: '入室済み', guided: '入室済み', cancelled: 'キャンセル', absent: '無効' })[t.status] || '';
 // 3人以上のときは、2人1組ずつ別の整理券になる。券を切り替えるタブ
 const tabsHtml = () => {
@@ -104,7 +104,11 @@ const stubHtml = enabled => enabled
   : `<div class="off">${stubPaper('')}</div>`;
 
 // 受付（スタッフ）から、この券に送られたお知らせ
-const msgCard = () => me && me.msg && ['waiting', 'called'].includes(me.status) ? `<div class="msgc"><b>受付からのお知らせ</b><div class="mt">${esc(me.msg)}</div>${me.msgAt ? `<small>${fmtHM(new Date(me.msgAt))}</small>` : ''}</div>` : '';
+const msgAcked = () => me.msgAckAt && me.msgAckAt >= (me.msgAt || 0);
+const msgCard = () => me && me.msg && ['waiting', 'called'].includes(me.status) ? `<div class="msgc"><b>受付からのお知らせ</b><div class="mt">${esc(me.msg)}</div><div class="mf">${me.msgAt ? `<small>${fmtHM(new Date(me.msgAt))}</small>` : ''}${msgAcked() ? '<small>確認しました</small>' : '<button class="btn sub" id="msgOk">確認しました</button>'}</div></div>` : '';
+// 全員へのお知らせ（スタッフが設定。閉じた人には、同じお知らせをもう出さない）
+const noticeClosed = () => { try { return localStorage.getItem('seiriken-nd') === String(cfg.noticeAt); } catch (e) { return false; } };
+const noticeCard = () => cfg.notice && !noticeClosed() ? `<div class="msgc all"><b>全体へのお知らせ</b><div class="mt">${esc(cfg.notice)}</div><div class="mf">${cfg.noticeAt ? `<small>${fmtHM(new Date(cfg.noticeAt))}</small>` : '<small></small>'}<button class="btn sub" id="noticeClose">閉じる</button></div></div>` : '';
 const usrTag = () => me && me.name ? `<div class="usr">${esc(me.name)}さん</div>` : '';
 const tkHead = `<div class="tk-band"><span>${esc(EVENT_TITLE)}</span><small>整理券</small></div>`;
 
@@ -167,7 +171,7 @@ function render() {
   if (!me) { app.innerHTML = myIds.length ? '<div class="scr"><p class="c small">読み込み中…</p></div>' : viewIssue(); wire(); return; }
   app.innerHTML = viewTicket();
   document.title = me.status === 'called' ? '【待機室へお越しください】整理券' : '整理券';
-  wire(); tick(); ackSeen();
+  wire(); tick(); ackSeen(); ackMsg();
 }
 
 function wire() {
@@ -185,6 +189,8 @@ function wire() {
       .catch(e => alert(errText('CA', e)));
   };
   if ($('reportBtn')) $('reportBtn').onclick = openReport;
+  if ($('noticeClose')) $('noticeClose').onclick = () => { try { localStorage.setItem('seiriken-nd', String(cfg.noticeAt)); } catch (e) {} render(); };
+  if ($('msgOk')) $('msgOk').onclick = () => { const id = me.id; db.collection('tickets').doc(id).update({ msgAckAt: Date.now() }).catch(e => alert(errText('RP', e))); };
   if ($('refresh')) $('refresh').onclick = () => { subAll(); };
   if ($('again')) $('again').onclick = leave;
   if ($('another')) $('another').onclick = () => { if (confirm('この端末に表示している整理券を外して、新しい整理券を発行します。\n今の整理券は、順番待ちの列に残ります。')) leave(); };
@@ -373,6 +379,13 @@ async function pollStaff() {
   netUpdate();
 }
 setInterval(pollStaff, 300000); setTimeout(pollStaff, 8000);
+// 受付からのメッセージが画面に出たら、「届いた」印を1通につき1回だけ書く
+function ackMsg() {
+  if (!me || !me.msg || document.hidden || !['waiting', 'called'].includes(me.status)) return;
+  if (me.msgSeenAt && me.msgSeenAt >= (me.msgAt || 0)) return;
+  const k = me.id + ':' + me.msgAt; if (ackTried[k]) return; ackTried[k] = 1;
+  db.collection('tickets').doc(me.id).update({ msgSeenAt: Date.now() }).catch(e => { if (e.code !== 'permission-denied') delete ackTried[k]; });
+}
 function ackSeen() {
   if (!me || me.status !== 'called' || me.seenAt || me.paper || document.hidden || ackTried[me.id]) return;
   const id = me.id; ackTried[id] = 1;
@@ -407,7 +420,7 @@ function syncSum() {
 // 別のアプリから戻ったときや、通信が復活したときは、つなぎ直して最新の状態を取り直す
 // 数秒切り替えただけなら読み直さない（つなぎ直すと読み取りが増える）。しばらく離れていたときだけ取り直す
 let hiddenAt = 0;
-document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else { ackSeen(); pollStaff(); if (Date.now() - hiddenAt > 60000) subAll(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else { ackSeen(); ackMsg(); pollStaff(); if (Date.now() - hiddenAt > 60000) subAll(); } });
 addEventListener('pageshow', e => { if (e.persisted) subAll(); });
 addEventListener('online', subAll);
 subAll();

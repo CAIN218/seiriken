@@ -21,6 +21,10 @@ service cloud.firestore {
         || (resource.data.status == 'called' && request.resource.data.status == 'called'
             && !('seenAt' in resource.data)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt']))
+        // お客さんが、受付からのメッセージを見た・確認した印
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['msgSeenAt', 'msgAckAt'])
+            && (!('msgSeenAt' in request.resource.data) || request.resource.data.msgSeenAt is number)
+            && (!('msgAckAt' in request.resource.data) || request.resource.data.msgAckAt is number))
         // お客さんから受付への連絡（report）。100文字まで、何度でも送れる
         || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['report', 'reportAt', 'reportCode'])
             && request.resource.data.report is string && request.resource.data.report.size() <= 100
