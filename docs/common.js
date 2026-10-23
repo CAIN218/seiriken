@@ -119,6 +119,8 @@ const dmLastStaff = t => dmList(t).filter(m => m.f === 's').pop();
 const dmLastCust = t => dmList(t).filter(m => m.f === 'c').pop();
 const dmUnread = t => { const m = dmLastStaff(t); return !!m && !dmList(t).some(x => x.f === 'c' && x.at > m.at); }; // お客さん：受付の最後のメッセージに、まだ返事をしていない
 const dmCustUnread = t => { const m = dmLastCust(t); return !!m && m.at > (t.dmReadAt || 0); };                  // スタッフ：お客さんの最後のメッセージを、まだ読んでいない
+// 待ち時間の目安（今から○分）。n組ぶん待つとして、10分以上は5分きざみ
+const waitMinutes = (n, c, avg) => { const m = n * gapSecOf(c, avg) / 60; return m >= 10 ? Math.round(m / 5) * 5 : Math.max(1, Math.round(m)); };
 let lastErr = { code: '', at: 0 }; // 直前の失敗のコード（受付への連絡に添える）
 function errText(op, e) {
   const k = causeKey(e), c = CAUSES[k], raw = k === 'X0' && e ? ':' + (e.code || e.message || '').toString().slice(0, 40) : '';

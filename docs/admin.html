@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=53"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=54"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -23,7 +23,7 @@
     <div id="stopNote"></div><div id="reports"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v53</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v54</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -110,7 +110,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=53"></script><script src="common.js?v=53"></script>
+<script src="firebase-config.js?v=54"></script><script src="common.js?v=54"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -540,14 +540,13 @@ document.addEventListener('pointercancel', e => endDrag(e, true));
 
 /* ---------- スマホなしの方の発券（紙） ---------- */
 const pf = { name: '', people: 1, err: '', busy: false, result: null };
-const fmtEta = d => `${d.getHours()}時${String(d.getMinutes()).padStart(2, '0')}分ごろ`;
 function renderPaper() {
   if (pf.result) {
     const r = pf.result;
     $('pBody').innerHTML = `<div class="box c" style="text-align:center"><div style="font-weight:800;color:#5a6378">整理券の番号</div>
       ${r.items.map(it => `<div class="pnum" ${r.items.length > 1 ? 'style="font-size:min(26vw,120px)"' : ''}>${it.n}<small style="font-size:18px;color:#5a6378;font-weight:800"> ${it.people}名</small></div>`).join('')}
-      <div class="peta">目安 ${fmtEta(r.eta)}</div><div style="color:#5a6378;margin-top:6px">${esc(r.name)} さん　${r.people}名</div></div>
-      <div class="ho" style="margin:0 4px 8px">番号と目安の時刻を、カードに書き写してお渡しください${r.items.length > 1 ? `（${r.items.length}枚）` : ''}。</div>
+      ${r.min ? `<div class="peta">目安 約${r.min}分</div>` : ''}<div style="color:#5a6378;margin-top:6px">${esc(r.name)} さん　${r.people}名</div></div>
+      <div class="ho" style="margin:0 4px 8px">番号と目安の時間（○分）を、カードに書き写してお渡しください${r.items.length > 1 ? `（${r.items.length}枚）` : ''}。</div>
       <button id="pNext" class="full btn-main" style="min-height:60px;font-size:20px">続けて発券する</button>`;
     $('pNext').onclick = () => { pf.result = null; pf.name = ''; pf.people = 1; renderPaper(); setTimeout(() => $('pName') && $('pName').focus(), 50); };
     return;
@@ -569,7 +568,7 @@ async function issuePaper() {
   if (!name) { pf.err = 'ニックネームを入力してください'; renderPaper(); return; }
   if (pf.busy) return; pf.busy = true; pf.err = ''; renderPaper();
   const ref = counter(), parts = splitPeople(pf.people), refs = parts.map(() => db.collection('tickets').doc());
-  const ahead = list.filter(inLine).length, gap = gapSecOf(cfg, buildSummary(list).avgGapSec), people = pf.people;
+  const ahead = list.filter(inLine).length, people = pf.people;
   let n0 = 0, grp = null;
   try {
     await db.runTransaction(async tx => {
@@ -580,7 +579,7 @@ async function issuePaper() {
       tx.set(ref, parts.length > 1 ? { last: n0 + parts.length, gLast: g0 + 1 } : { last: n0 + parts.length }, { merge: true });
       parts.forEach((p, i) => tx.set(refs[i], { day: today(), number: n0 + 1 + i, name, people: p, status: 'waiting', createdAt: Date.now(), paper: true, ...(grp ? { grp } : {}) }));
     });
-    pf.result = { items: parts.map((p, i) => ({ n: n0 + 1 + i + (grp ? '-' + grp : ''), people: p })), name, people, eta: new Date(Math.round((Date.now() + (ahead + 1) * gap * 1000) / 300000) * 300000) };
+    pf.result = { items: parts.map((p, i) => ({ n: n0 + 1 + i + (grp ? '-' + grp : ''), people: p })), name, people, min: waitModeOf(cfg) === 'off' ? 0 : waitMinutes(ahead + 1, cfg, buildSummary(list).avgGapSec) };
   } catch (e) {
     pf.err = errText('PP', e);
   }
