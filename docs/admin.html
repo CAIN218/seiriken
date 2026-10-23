@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=51"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=52"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -23,7 +23,7 @@
     <div id="stopNote"></div><div id="reports"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v51</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v52</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -110,7 +110,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=51"></script><script src="common.js?v=51"></script>
+<script src="firebase-config.js?v=52"></script><script src="common.js?v=52"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -431,8 +431,7 @@ function renderSheet() {
   const sendOk = canDm && ['waiting', 'called'].includes(t.status);
   const msgBox = canDm && (sendOk || dmList(t).length) ? `<details class="msgbox" ${dmList(t).length ? 'open' : ''}><summary>お客さんとのメッセージ${dmCustUnread(t) ? '<i class="unp">返信あり</i>' : ''}</summary>
     <div class="chat" id="chatList" data-id="${t.id}">${dmList(t).length ? dmList(t).map(m => sbub(m, t)).join('') : '<p class="small" style="text-align:center;color:#8a93a6">まだメッセージはありません</p>'}</div>
-    ${sendOk ? `<div class="msgpre">${MSG_PRESETS.map((m, i) => `<button class="mini" data-msgpre="${i}">${esc(m)}</button>`).join('')}</div>
-    <textarea id="msgText" data-id="${t.id}" rows="2" maxlength="100" placeholder="メッセージ（100文字まで）"></textarea>
+    ${sendOk ? `<textarea id="msgText" data-id="${t.id}" rows="2" maxlength="100" placeholder="メッセージ（100文字まで）"></textarea>
     <button class="sbtn btn-ok" id="msgSend" data-id="${t.id}">送る</button>` : ''}
     ${dmList(t).length ? `<button class="mini" data-msgclear="${t.id}" style="margin-top:8px">会話を消す</button>` : ''}</details>` : '';
   // 入力中に画面が更新されても、書きかけの文字と開閉・スクロールの位置を残す
@@ -445,8 +444,6 @@ function renderSheet() {
 }
 // お客さんとのダイレクトメッセージ（その券の分だけの書き込み。購読は増えない）
 const sbub = (m, t) => `<div class="bub ${m.f === 's' ? 'me' : 'you'}"><div class="bt">${esc(m.t)}</div><small>${m.f === 's' ? '受付' : 'お客さん'}　${fmtT(m.at)}${m.f === 's' && t.dmSeenAt >= m.at ? '　既読' : ''}${m.code ? '　コード ' + esc(m.code) : ''}</small></div>`;
-const NOTICE_PRESETS = ['整理券の発行をいったん止めています', '呼び出しが遅れています。画面を開いたままお待ちください', '呼ばれた方は、受付までお越しください'];
-const MSG_PRESETS = ['まもなく呼びます。会場の近くでお待ちください', '受付までお越しください', '呼び出しに気づいたら、受付にお声がけください'];
 const readTried = {};
 function markRead(t) { // お客さんの新しいメッセージを開いたら、既読にする（1通につき1回）
   if (!dmCustUnread(t)) return;
@@ -459,7 +456,6 @@ async function sendMsg(id, text) {
   try { await db.collection('tickets').doc(id).update({ dm: firebase.firestore.FieldValue.arrayUnion({ f: 's', t: text, at: Date.now() }) }); $('msgText').value = ''; } catch (e) { alert(errText('MS', e)); }
 }
 document.addEventListener('click', e => {
-  const pre = e.target.closest('[data-msgpre]'); if (pre) { $('msgText').value = MSG_PRESETS[+pre.dataset.msgpre]; return; }
   const clr = e.target.closest('[data-msgclear]'); if (clr) { if (confirm('このお客さんとのメッセージを、すべて消します。よろしいですか？')) db.collection('tickets').doc(clr.dataset.msgclear).update({ dm: del(), dmSeenAt: del(), dmReadAt: del() }).catch(err => alert(errText('MS', err))); return; }
   const snd = e.target.closest('#msgSend'); if (snd) { sendMsg(snd.dataset.id, $('msgText').value); return; }
   const rd = e.target.closest('[data-repdone]'); if (rd) { const t = list.find(x => x.id === rd.dataset.repdone); if (t) markRead(t); return; }
@@ -670,11 +666,9 @@ function renderMenu() {
   const oldN = $('noticeText'), keepN = oldN ? { v: oldN.value, f: document.activeElement === oldN } : null;
   $('noticeBox').innerHTML = `<div class="sdesc">いま開いている全員のお客さん画面の上に、お知らせを出します。${cfg.notice ? '' : '何も出していません。'}</div>
     ${cfg.notice ? `<div class="msgnow"><div>表示中：「${esc(cfg.notice)}」<br><small>${fmtT(cfg.noticeAt)}から</small></div><button class="mini" id="noticeClear">消す</button></div>` : ''}
-    <div class="msgpre">${NOTICE_PRESETS.map((m, i) => `<button class="mini" data-npre="${i}">${esc(m)}</button>`).join('')}</div>
     <textarea id="noticeText" rows="2" maxlength="100" placeholder="全員へのお知らせ（100文字まで）"></textarea>
     <button class="full btn-ok" id="noticeSend">全員に出す</button>`;
   { const n = $('noticeText'); if (keepN) { n.value = keepN.v; if (keepN.f) n.focus(); } }
-  document.querySelectorAll('[data-npre]').forEach(b => b.onclick = () => { $('noticeText').value = NOTICE_PRESETS[+b.dataset.npre]; });
   $('noticeSend').onclick = () => { const v = $('noticeText').value.trim().slice(0, 100); if (!v) return; if (confirm(`全員に出します。よろしいですか？\n\n${v}`)) { $('noticeText').value = ''; saveCfg({ notice: v, noticeAt: Date.now() }); } };
   if ($('noticeClear')) $('noticeClear').onclick = () => saveCfg({ notice: del(), noticeAt: del() });
   const wm = waitModeOf(cfg), wmin = cfg.waitMin > 0 ? cfg.waitMin : 3, mOn = cfg.multiTicket !== false;

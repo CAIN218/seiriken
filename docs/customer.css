@@ -233,3 +233,8 @@ textarea.field{font-size:17px;min-height:0;resize:none}
 .chat{height:30vh;min-height:120px;overflow-y:auto;overscroll-behavior:contain;background:#f4f2ec;border-radius:14px;padding:8px 10px 12px;margin:8px 0;-webkit-overflow-scrolling:touch}
 .dmhead{display:flex;align-items:center;justify-content:space-between;gap:8px}.dmhead .h1{font-size:22px}.dmhead .btn{width:auto;min-height:44px;font-size:16px;padding:0 16px}
 #dm .rchoice{flex-direction:row;flex-wrap:wrap}#dm .rchoice button{min-height:44px;font-size:15px;padding:0 12px}
+
+/* v52: ダイレクトメッセージを控えめに */
+.msgc{border-width:1px;padding:10px 12px}
+.msgc .mf .linkbtn{color:inherit;opacity:.75;font-size:14px;min-height:36px;padding:0 4px;text-decoration:underline}
+.unp{background:#8a7a3a !important;font-size:11px !important;padding:0 8px !important}

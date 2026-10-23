@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=51"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=52"></head>
 <body class="st-none"><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=51"></script><script src="common.js?v=51"></script>
+<script src="firebase-config.js?v=52"></script><script src="common.js?v=52"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -108,7 +108,7 @@ const bubHtml = (m, t) => `<div class="bub ${m.f}"><div class="bt">${esc(m.t)}</
 const dmCard = () => {
   if (!me || !dmList(me).length || !['waiting', 'called'].includes(me.status)) return '';
   const un = dmUnread(me), n = dmList(me).length;
-  return `<div class="msgc ${un ? '' : 'done'}"><b>受付とのダイレクトメッセージ${un ? '<i class="unp">未確認</i>' : '<i class="unp ok">返事済み</i>'}</b>${dmList(me).slice(-2).map(m => bubHtml(m, me)).join('')}<div class="mf">${un ? '<button class="btn" id="dmOk">確認しました</button>' : '<span></span>'}<button class="btn sub" id="dmOpen">${n > 2 ? '全部見る・返信' : '返信する'}</button></div></div>`;
+  return `<div class="msgc ${un ? '' : 'done'}"><b>受付とのダイレクトメッセージ${un ? '<i class="unp">新着</i>' : ''}</b>${dmList(me).slice(-2).map(m => bubHtml(m, me)).join('')}<div class="mf">${un ? '<button class="linkbtn" id="dmOk">確認しました</button>' : '<span></span>'}<button class="linkbtn" id="dmOpen">${n > 2 ? '全部見る・返信' : '返信する'}</button></div></div>`;
 };
 // 全員へのお知らせ（スタッフが設定。閉じた人には、同じお知らせをもう出さない）
 const noticeClosed = () => { try { return localStorage.getItem('seiriken-nd') === String(cfg.noticeAt); } catch (e) { return false; } };
@@ -213,7 +213,6 @@ function showNotice() {
 showNotice();
 // 受付とのダイレクトメッセージ。お客さんが送るのは、1通100文字まで・全部で40通まで
 let dmSentAt = 0;
-const DM_QUICK = ['確認しました', '今向かいます', '少し遅れます', '画面が進まない・動かない', '呼ばれたのに表示が変わらない', '半券がもぎれない'];
 async function sendDm(text, withCode) {
   text = (text || '').trim().slice(0, 100);
   if (!text || !me) return;
@@ -235,13 +234,11 @@ function openDm() {
   const el = document.createElement('div'); el.className = 'ov'; el.id = 'dm';
   el.innerHTML = `<div class="dlg" role="dialog" aria-modal="true"><div class="dmhead"><div class="h1">受付とのメッセージ</div><button class="btn sub" id="dmX">閉じる</button></div>
     <div class="chat" id="chatList"></div>
-    <div class="rchoice">${DM_QUICK.map(c => `<button data-rc="${esc(c)}">${esc(c)}</button>`).join('')}</div>
     <textarea id="dmText" class="field" rows="2" maxlength="100" placeholder="メッセージ（100文字まで）"></textarea>
     <div class="err c" id="dmMsg" style="margin:4px 0"></div>
     <button class="btn" id="dmSend">送る</button></div>`;
   document.body.appendChild(el);
   const $ = i => document.getElementById(i);
-  el.querySelectorAll('[data-rc]').forEach(b => b.onclick = () => { $('dmText').value = b.dataset.rc; $('dmText').focus(); });
   $('dmX').onclick = () => el.remove();
   $('dmSend').onclick = async () => {
     const t = $('dmText').value.trim();
@@ -386,6 +383,7 @@ setInterval(netUpdate, 1000);
 addEventListener('offline', () => { if (!offSince) offSince = Date.now(); netUpdate(); });
 // C: 生存確認の時刻を5分ごとに読む（呼び出し中か、あと少しの券があるときだけ。1回の読み取りで済む）
 async function pollStaff() {
+  lastPoll = Date.now();
   // 呼び出し中か、前に3組以内の券があるときだけ読む（後ろの方で待つ人は読まない＝読み取りの節約）
   const near = myIds.some(id => { const t = mine[id]; if (!t) return false; if (t.status === 'called') return true; const i = line().indexOf(t.number); return t.status === 'waiting' && i >= 0 && i <= 3; });
   if (document.hidden || !near) { staffStale = 0; return; }
@@ -396,7 +394,9 @@ async function pollStaff() {
   } catch (e) { /* 通信できないときはAの警告に任せる */ }
   netUpdate();
 }
-setInterval(pollStaff, 300000); setTimeout(pollStaff, 8000);
+// ふだんは5分ごと。黄色い帯が出ている間だけ1分ごとに見て、スタッフ画面が戻ったらすぐ消す
+let lastPoll = 0;
+setInterval(() => { if (staffStale || Date.now() - lastPoll >= 295000) pollStaff(); }, 60000); setTimeout(pollStaff, 8000);
 // 受付のメッセージが画面に出たら、「既読」の印（dmSeenAt）を、新しいメッセージ1通につき1回だけ書く
 function ackDm() {
   if (!me || document.hidden || !(document.getElementById('dm') || ['waiting', 'called'].includes(me.status))) return;
@@ -427,7 +427,7 @@ function subAll() {
 let unsubSum = null;
 function subSum() {
   if (unsubSum) unsubSum();
-  unsubSum = summaryRef().onSnapshot({ includeMetadataChanges: true }, d => { okSnap(d); sum = d.exists ? d.data() : {}; cfg = sum.cfg || {}; render(); }, errSnap);
+  unsubSum = summaryRef().onSnapshot({ includeMetadataChanges: true }, d => { okSnap(d); sum = d.exists ? d.data() : {}; cfg = sum.cfg || {}; if (!d.metadata.fromCache && sum.updatedAt && Date.now() - sum.updatedAt < WARN_MS && staffStale) { staffStale = 0; netUpdate(); } render(); }, errSnap);
 }
 function syncSum() {
   const ts = myIds.map(id => mine[id]).filter(Boolean);
