@@ -204,3 +204,8 @@ body.st-none .tk-main.full{background:#fff}
 #net{position:sticky;top:0;z-index:60;padding:10px 14px;text-align:center;font-size:16px;line-height:1.45;font-weight:700}
 #net small{font-size:13px;font-weight:700;opacity:.85}
 #net.bad{background:#b04545;color:#fff}#net.warn{background:#f3e7b8;color:#5c4400}#net.ok{background:#3a7d6e;color:#fff}
+
+/* アプリ内ブラウザの案内 */
+#inapp{position:sticky;top:0;z-index:70;padding:12px 14px;text-align:center;font-size:15px;line-height:1.5;background:#f3e7b8;color:#5c4400;border-bottom:2px solid #d8c27a}
+#inapp small{font-size:13px;font-weight:500}
+#inapp .btn{display:inline-block;margin-top:8px;padding:12px 22px;border-radius:999px;background:#5c4400;color:#fff;font-weight:800;font-size:16px;text-decoration:none;cursor:pointer}
