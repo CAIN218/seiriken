@@ -1,41 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=48"></head>
-<body class="st-none"><div id="inapp" hidden></div><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
-<script>
-/* QRリーダーなどのアプリ内ブラウザでは、整理券の情報が消えることがあるので、ふつうのブラウザで開くよう案内する */
-(function () {
-  const ua = navigator.userAgent;
-  const url = () => location.href.split('#')[0];
-  const android = /Android/i.test(ua), ios = /iPhone|iPad|iPod/i.test(ua);
-  const inApp = (android && /; wv\)|Version\/[\d.]+ Chrome|FBAN|FBAV|Instagram|Line\/|MicroMessenger|Twitter|KAKAOTALK/i.test(ua)) ||
-    (ios && /AppleWebKit/i.test(ua) && !/Safari\//i.test(ua)) || /FBAN|FBAV|Instagram|Line\/|MicroMessenger|Twitter/i.test(ua);
-  // iPhoneのスキャナーはSafariと見分けがつかないことがあるので、券を取った後はSafariで開き直すよう案内する
-  window.softInapp = function () {
-    const el = document.getElementById('inapp');
-    if (!ios || !el.hidden || navigator.standalone || matchMedia('(display-mode: standalone)').matches) return;
-    el.innerHTML = '<b>この整理券は、Safariで開き直すと安心です</b><br><small>QRリーダーアプリの中だと、整理券が消えることがあります。下のボタンでアドレスをコピーして、Safariに貼りつけて開いてください</small><br><a class="btn" id="inapp-copy">アドレスをコピー</a> <a class="btn sub" id="inapp-x">閉じる</a>';
-    el.hidden = false;
-    document.getElementById('inapp-x').onclick = () => { el.hidden = true; el.dataset.x = 1; };
-    const cp = document.getElementById('inapp-copy');
-    cp.onclick = async () => { try { await navigator.clipboard.writeText(url()); cp.textContent = 'コピーしました。Safariに貼りつけてください'; } catch (e) { cp.textContent = url(); } };
-  };
-  if (!inApp || /CriOS|FxiOS|EdgiOS/.test(ua) && !/Line\/|FBAN|Instagram/.test(ua)) return;
-  const el = document.getElementById('inapp');
-  let h = '<b>このままだと整理券が消えることがあります</b><br>ふつうのブラウザで開いてください';
-  if (android) h += '<br><a class="btn" id="inapp-go">ブラウザで開く</a>';
-  else h += '<br><small>画面の右下か上のメニューから「Safariで開く」を選ぶか、下のボタンでアドレスをコピーして、Safariに貼りつけてください</small><br><a class="btn" id="inapp-copy">アドレスをコピー</a>';
-  el.innerHTML = h; el.hidden = false;
-  const go = document.getElementById('inapp-go');
-  if (go) go.onclick = () => { const u = new URL(url()); location.href = 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end'; };
-  const cp = document.getElementById('inapp-copy');
-  if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(url()); cp.textContent = 'コピーしました。Safariに貼りつけてください'; } catch (e) { cp.textContent = url(); } };
-})();
-</script>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=51"></head>
+<body class="st-none"><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=48"></script><script src="common.js?v=48"></script>
+<script src="firebase-config.js?v=51"></script><script src="common.js?v=51"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -44,8 +14,8 @@ let me = null, sum = {}, cfg = {}, dragging = false, pending = false;
 try { myIds = (localStorage.getItem(KEY) || new URLSearchParams(location.search).get('t') || '').split(',').filter(Boolean); nick = localStorage.getItem('seiriken-nick') || ''; } catch (e) {}
 const app = document.getElementById('app');
 const line = () => sum.line || [];
-const showWait = () => cfg.showWait !== false;
-const gapSec = () => sum.avgGapSec || DEFAULT_GAP_SEC;
+const showWait = () => waitModeOf(cfg) !== 'off';
+const gapSec = () => gapSecOf(cfg, sum.avgGapSec);
 const fmtHM = d => d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false });
 const fmtHMS = ms => new Date(ms).toLocaleTimeString('ja-JP', { hour12: false });
 // 戻ってきてほしい時刻（5分単位の目安）
@@ -62,7 +32,6 @@ function saveIds() {
     if (myIds.length) { localStorage.setItem(KEY, myIds.join(',')); u.searchParams.set('t', myIds.join(',')); }
     else { localStorage.removeItem(KEY); u.searchParams.delete('t'); }
     history.replaceState(null, '', u);
-    if (myIds.length && window.softInapp && !document.getElementById('inapp').dataset.x) softInapp();
   } catch (e) {}
 }
 // 画面に出す券：呼び出し中があればそれ、なければ順番待ちの先頭。券の状態が変わったら、自分で選んだ券より優先して切り替える
@@ -118,7 +87,7 @@ function leave() { myIds = []; mine = {}; selId = null; sig = ''; saveIds(); me 
 const allEnded = () => myIds.map(id => mine[id]).filter(Boolean).every(t => ['inroom', 'guided', 'cancelled', 'absent'].includes(t.status));
 
 /* ---------- 画面 ---------- */
-const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${tabsHtml()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div>${me ? '' : '<div class="c staffl"><a href="admin.html">スタッフ用ログイン</a></div>'}</div></div>`; };
+const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${noticeCard()}${tabsHtml()}${dmCard()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}${me ? '<div class="c"><button class="linkbtn" id="reportBtn">受付にメッセージを送る</button></div>' : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div>${me ? '' : '<div class="c staffl"><a href="admin.html">スタッフ用ログイン</a></div>'}</div></div>`; };
 const tabState = t => ({ called: '呼び出し', waiting: '順番待ち', inroom: '入室済み', guided: '入室済み', cancelled: 'キャンセル', absent: '無効' })[t.status] || '';
 // 3人以上のときは、2人1組ずつ別の整理券になる。券を切り替えるタブ
 const tabsHtml = () => {
@@ -134,6 +103,16 @@ const stubHtml = enabled => enabled
   ? `<div class="slw r"><div class="sl">${stubPaper('受付でもぎってください')}</div></div><div class="slw l"><div class="sl">${stubPaper('受付でもぎってください')}</div></div>`
   : `<div class="off">${stubPaper('')}</div>`;
 
+// 受付とのダイレクトメッセージ（dm の並び。common.js の dmList など）
+const bubHtml = (m, t) => `<div class="bub ${m.f}"><div class="bt">${esc(m.t)}</div><small>${m.f === 's' ? '受付' : 'あなた'}　${fmtHM(new Date(m.at))}${m.f === 'c' && t.dmReadAt >= m.at ? '　既読' : ''}</small></div>`;
+const dmCard = () => {
+  if (!me || !dmList(me).length || !['waiting', 'called'].includes(me.status)) return '';
+  const un = dmUnread(me), n = dmList(me).length;
+  return `<div class="msgc ${un ? '' : 'done'}"><b>受付とのダイレクトメッセージ${un ? '<i class="unp">未確認</i>' : '<i class="unp ok">返事済み</i>'}</b>${dmList(me).slice(-2).map(m => bubHtml(m, me)).join('')}<div class="mf">${un ? '<button class="btn" id="dmOk">確認しました</button>' : '<span></span>'}<button class="btn sub" id="dmOpen">${n > 2 ? '全部見る・返信' : '返信する'}</button></div></div>`;
+};
+// 全員へのお知らせ（スタッフが設定。閉じた人には、同じお知らせをもう出さない）
+const noticeClosed = () => { try { return localStorage.getItem('seiriken-nd') === String(cfg.noticeAt); } catch (e) { return false; } };
+const noticeCard = () => cfg.notice && !noticeClosed() ? `<div class="msgc all"><b>全体へのお知らせ</b><div class="mt">${esc(cfg.notice)}</div><div class="mf">${cfg.noticeAt ? `<small>${fmtHM(new Date(cfg.noticeAt))}</small>` : '<small></small>'}<button class="btn sub" id="noticeClose">閉じる</button></div></div>` : '';
 const usrTag = () => me && me.name ? `<div class="usr">${esc(me.name)}さん</div>` : '';
 const tkHead = `<div class="tk-band"><span>${esc(EVENT_TITLE)}</span><small>整理券</small></div>`;
 
@@ -196,7 +175,7 @@ function render() {
   if (!me) { app.innerHTML = myIds.length ? '<div class="scr"><p class="c small">読み込み中…</p></div>' : viewIssue(); wire(); return; }
   app.innerHTML = viewTicket();
   document.title = me.status === 'called' ? '【待機室へお越しください】整理券' : '整理券';
-  wire(); tick(); ackSeen();
+  wire(); tick(); ackSeen(); ackDm(); renderChat();
 }
 
 function wire() {
@@ -213,10 +192,67 @@ function wire() {
       .catch(() => ref.update({ status: 'cancelled', cancelledAt: now }))
       .catch(e => alert(errText('CA', e)));
   };
+  document.querySelectorAll('#reportBtn, #dmOpen').forEach(b => b.onclick = openDm);
+  if ($('noticeClose')) $('noticeClose').onclick = () => { try { localStorage.setItem('seiriken-nd', String(cfg.noticeAt)); } catch (e) {} render(); };
+  if ($('dmOk')) $('dmOk').onclick = () => { $('dmOk').disabled = true; sendDm('確認しました').catch(e => { alert(errText('RP', e)); render(); }); };
   if ($('refresh')) $('refresh').onclick = () => { subAll(); };
   if ($('again')) $('again').onclick = leave;
   if ($('another')) $('another').onclick = () => { if (confirm('この端末に表示している整理券を外して、新しい整理券を発行します。\n今の整理券は、順番待ちの列に残ります。')) leave(); };
   setupTear();
+}
+
+/* ---------- 開いたときの確認と、受付への連絡 ---------- */
+const NOTICE_KEY = 'seiriken-notice-' + today();
+function showNotice() {
+  try { if (localStorage.getItem(NOTICE_KEY)) return; } catch (e) {}
+  const el = document.createElement('div'); el.className = 'ov'; el.id = 'notice';
+  el.innerHTML = '<div class="dlg" role="dialog" aria-modal="true"><div class="h1 c">ご確認ください</div><ul class="nl"><li>生徒が開発しているので、万が一不具合があれば受付にお越しください。</li><li>待ち時間は目安です。</li></ul><button class="btn" id="noticeOk">確認しました</button></div>';
+  document.body.appendChild(el);
+  document.getElementById('noticeOk').onclick = () => { try { localStorage.setItem(NOTICE_KEY, '1'); } catch (e) {} el.remove(); };
+}
+showNotice();
+// 受付とのダイレクトメッセージ。お客さんが送るのは、1通100文字まで・全部で40通まで
+let dmSentAt = 0;
+const DM_QUICK = ['確認しました', '今向かいます', '少し遅れます', '画面が進まない・動かない', '呼ばれたのに表示が変わらない', '半券がもぎれない'];
+async function sendDm(text, withCode) {
+  text = (text || '').trim().slice(0, 100);
+  if (!text || !me) return;
+  if (dmList(me).length >= 40) throw new Error('full');
+  const item = { f: 'c', t: text, at: Date.now() };
+  if (withCode && lastErr.at && Date.now() - lastErr.at < 600000) { item.code = lastErr.code; lastErr.at = 0; }
+  await Promise.race([db.collection('tickets').doc(me.id).update({ dm: firebase.firestore.FieldValue.arrayUnion(item) }), sleep(8000).then(() => { throw new Error('timeout'); })]);
+  dmSentAt = Date.now();
+}
+function renderChat() {
+  const box = document.getElementById('chatList'); if (!box || !me) return;
+  const ms = dmList(me), nearEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 60, first = !box.dataset.n;
+  box.innerHTML = ms.length ? ms.map(m => bubHtml(m, me) + (m.code ? `<div class="bcode ${m.f}">コード ${esc(m.code)}</div>` : '')).join('') : '<p class="small c">まだメッセージはありません。不具合や遅れるときなどは、下から送れます。</p>';
+  if (first || (nearEnd && +box.dataset.n !== ms.length)) box.scrollTop = box.scrollHeight;
+  box.dataset.n = ms.length;
+}
+function openDm() {
+  if (!me || document.getElementById('dm')) return;
+  const el = document.createElement('div'); el.className = 'ov'; el.id = 'dm';
+  el.innerHTML = `<div class="dlg" role="dialog" aria-modal="true"><div class="dmhead"><div class="h1">受付とのメッセージ</div><button class="btn sub" id="dmX">閉じる</button></div>
+    <div class="chat" id="chatList"></div>
+    <div class="rchoice">${DM_QUICK.map(c => `<button data-rc="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+    <textarea id="dmText" class="field" rows="2" maxlength="100" placeholder="メッセージ（100文字まで）"></textarea>
+    <div class="err c" id="dmMsg" style="margin:4px 0"></div>
+    <button class="btn" id="dmSend">送る</button></div>`;
+  document.body.appendChild(el);
+  const $ = i => document.getElementById(i);
+  el.querySelectorAll('[data-rc]').forEach(b => b.onclick = () => { $('dmText').value = b.dataset.rc; $('dmText').focus(); });
+  $('dmX').onclick = () => el.remove();
+  $('dmSend').onclick = async () => {
+    const t = $('dmText').value.trim();
+    if (!t) { $('dmMsg').textContent = '送る内容を選ぶか、書いてください'; return; }
+    if (Date.now() - dmSentAt < 3000) { $('dmMsg').textContent = '少し待ってから、もう一度送ってください'; return; }
+    $('dmSend').disabled = true; $('dmMsg').textContent = '';
+    try { await sendDm(t, true); $('dmText').value = ''; }
+    catch (e) { $('dmMsg').textContent = e.message === 'full' ? 'これ以上は送れません。受付にお越しください' : errText('RP', e); }
+    $('dmSend').disabled = false;
+  };
+  renderChat(); ackDm();
 }
 
 /* ---------- 半券をもぎる ---------- */
@@ -361,6 +397,13 @@ async function pollStaff() {
   netUpdate();
 }
 setInterval(pollStaff, 300000); setTimeout(pollStaff, 8000);
+// 受付のメッセージが画面に出たら、「既読」の印（dmSeenAt）を、新しいメッセージ1通につき1回だけ書く
+function ackDm() {
+  if (!me || document.hidden || !(document.getElementById('dm') || ['waiting', 'called'].includes(me.status))) return;
+  const m = dmLastStaff(me); if (!m || (me.dmSeenAt || 0) >= m.at) return;
+  const k = me.id + ':' + m.at; if (ackTried[k]) return; ackTried[k] = 1;
+  db.collection('tickets').doc(me.id).update({ dmSeenAt: Date.now() }).catch(e => { if (e.code !== 'permission-denied') delete ackTried[k]; });
+}
 function ackSeen() {
   if (!me || me.status !== 'called' || me.seenAt || me.paper || document.hidden || ackTried[me.id]) return;
   const id = me.id; ackTried[id] = 1;
@@ -395,7 +438,7 @@ function syncSum() {
 // 別のアプリから戻ったときや、通信が復活したときは、つなぎ直して最新の状態を取り直す
 // 数秒切り替えただけなら読み直さない（つなぎ直すと読み取りが増える）。しばらく離れていたときだけ取り直す
 let hiddenAt = 0;
-document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else { ackSeen(); pollStaff(); if (Date.now() - hiddenAt > 60000) subAll(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else { ackSeen(); ackDm(); pollStaff(); if (Date.now() - hiddenAt > 60000) subAll(); } });
 addEventListener('pageshow', e => { if (e.persisted) subAll(); });
 addEventListener('online', subAll);
 subAll();

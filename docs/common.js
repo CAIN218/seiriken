@@ -45,7 +45,10 @@ function watchTickets(cb) {
 // お客さん・モニター向けの集計（スタッフ画面が書き込む。読み取り回数を減らすため）
 const summaryRef = () => db.collection('summary').doc(today());
 // 発券の停止・待ち時間表示などの設定（counters）も集計に含める。お客さん・モニターは counters を読まずに済み、発券のたびの読み取りが減る
-const CFG_KEYS = ['closed', 'closedReason', 'reopenAt', 'showWait', 'multiTicket'];
+const CFG_KEYS = ['closed', 'closedReason', 'reopenAt', 'showWait', 'waitMode', 'waitMin', 'multiTicket', 'notice', 'noticeAt'];
+// 待ち時間の目安：auto（実績から自動）／manual（1組○分の手入力）／off（表示しない）。古い設定（showWait）にも対応
+const waitModeOf = c => (c && c.waitMode) || (c && c.showWait === false ? 'off' : 'auto');
+const gapSecOf = (c, avg) => waitModeOf(c) === 'manual' && c.waitMin > 0 ? c.waitMin * 60 : (avg || DEFAULT_GAP_SEC);
 const pickCfg = c => { const o = {}; CFG_KEYS.forEach(k => { if (c && c[k] !== undefined) o[k] = c[k]; }); return o; };
 // 止まっていないことを示す時刻は、お客さんが読む集計とは別のドキュメントに書く（集計に書くと全員が毎分読むことになる）
 const heartbeatRef = () => db.collection('summary').doc(today() + '-hb');
@@ -78,7 +81,7 @@ function currentTicket(list) {
    失敗したときは「何をしようとして（操作）、なぜ失敗したか（原因）」を画面に出す。
    エラーコードは 操作-原因（例：IS-N1）。一覧は README とトラブル対処ガイドにある */
 const WARN_MS = 5 * 60 * 1000; // 通信が切れている・スタッフ側の更新が止まっている、と警告するまでの時間
-const OPS = { IS: '整理券を発行できませんでした', TR: '半券をもぎれませんでした', CA: 'キャンセルできませんでした', WT: '最新の状態を取得できませんでした', OP: '操作できませんでした', PP: '紙の券を発券できませんでした', QU: '列の組を追加できませんでした', WK: '人数を記録できませんでした', CF: '設定を変更できませんでした', DL: '削除できませんでした', UN: '元に戻せませんでした', LG: 'ログインできませんでした' };
+const OPS = { IS: '整理券を発行できませんでした', TR: '半券をもぎれませんでした', CA: 'キャンセルできませんでした', WT: '最新の状態を取得できませんでした', OP: '操作できませんでした', PP: '紙の券を発券できませんでした', QU: '列の組を追加できませんでした', WK: '人数を記録できませんでした', CF: '設定を変更できませんでした', DL: '削除できませんでした', UN: '元に戻せませんでした', RP: '受付に連絡できませんでした', MS: 'メッセージを送れませんでした', LG: 'ログインできませんでした' };
 const CAUSES = {
   N1: ['端末がオフラインです', 'Wi-Fiやモバイル通信を確認してください'],
   N2: ['サーバーから応答がありません（通信が不安定です）', '少し待ってから、もう一度お試しください'],
@@ -110,7 +113,15 @@ function causeKey(e) {
   return 'X0';
 }
 // 「○○できませんでした。原因：…。対処：…（エラーコード XX-YY）」の文章を作る
+// 受付とのダイレクトメッセージ。ticket.dm は { f: 's'（受付）か 'c'（お客さん）, t: 本文, at: 時刻, code?: エラーコード } の並び
+const dmList = t => (t && Array.isArray(t.dm) ? t.dm : []);
+const dmLastStaff = t => dmList(t).filter(m => m.f === 's').pop();
+const dmLastCust = t => dmList(t).filter(m => m.f === 'c').pop();
+const dmUnread = t => { const m = dmLastStaff(t); return !!m && !dmList(t).some(x => x.f === 'c' && x.at > m.at); }; // お客さん：受付の最後のメッセージに、まだ返事をしていない
+const dmCustUnread = t => { const m = dmLastCust(t); return !!m && m.at > (t.dmReadAt || 0); };                  // スタッフ：お客さんの最後のメッセージを、まだ読んでいない
+let lastErr = { code: '', at: 0 }; // 直前の失敗のコード（受付への連絡に添える）
 function errText(op, e) {
   const k = causeKey(e), c = CAUSES[k], raw = k === 'X0' && e ? ':' + (e.code || e.message || '').toString().slice(0, 40) : '';
+  lastErr = { code: `${op}-${k}`, at: Date.now() };
   return `${OPS[op] || OPS.OP}。原因：${c[0]}。${c[1]}。（エラーコード ${op}-${k}${raw}）`;
 }

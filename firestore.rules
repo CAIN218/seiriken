@@ -20,7 +20,16 @@ service cloud.firestore {
         // 呼び出しがお客さんの画面に届いた印（seenAt）。呼び出し中の券に、1回だけ書ける
         || (resource.data.status == 'called' && request.resource.data.status == 'called'
             && !('seenAt' in resource.data)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt']));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt']))
+        // 受付とのダイレクトメッセージ。お客さんは、dm に1通ずつ追加できる（100文字まで・全部で40通まで）のと、見た印（dmSeenAt）を書ける
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['dm', 'dmSeenAt'])
+            && (!('dmSeenAt' in request.resource.data) || request.resource.data.dmSeenAt is number)
+            && (!('dm' in request.resource.data.diff(resource.data).affectedKeys())
+                || (request.resource.data.dm.size() == resource.data.get('dm', []).size() + 1
+                    && request.resource.data.dm.size() <= 40
+                    && request.resource.data.dm[request.resource.data.dm.size() - 1].f == 'c'
+                    && request.resource.data.dm[request.resource.data.dm.size() - 1].t is string
+                    && request.resource.data.dm[request.resource.data.dm.size() - 1].t.size() <= 100)));
       allow delete: if request.auth != null;
     }
     match /summary/{day} {

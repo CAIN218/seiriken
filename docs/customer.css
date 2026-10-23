@@ -205,8 +205,31 @@ body.st-none .tk-main.full{background:#fff}
 #net small{font-size:13px;font-weight:700;opacity:.85}
 #net.bad{background:#b04545;color:#fff}#net.warn{background:#f3e7b8;color:#5c4400}#net.ok{background:#3a7d6e;color:#fff}
 
-/* アプリ内ブラウザの案内 */
-#inapp{position:sticky;top:0;z-index:70;padding:12px 14px;text-align:center;font-size:15px;line-height:1.5;background:#f3e7b8;color:#5c4400;border-bottom:2px solid #d8c27a}
-#inapp small{font-size:13px;font-weight:500}
-#inapp .btn{display:inline-block;margin-top:8px;padding:12px 22px;border-radius:999px;background:#5c4400;color:#fff;font-weight:800;font-size:16px;text-decoration:none;cursor:pointer}
-#inapp .btn.sub{background:transparent;color:#5c4400;border:2px solid #5c4400}
+
+/* 開いたときの確認・受付への連絡・受付からのお知らせ */
+.ov{position:fixed;inset:0;z-index:90;background:rgba(30,36,48,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.dlg{background:#fff;border-radius:20px;padding:20px 18px;max-width:420px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.nl{margin:12px 0 16px;padding-left:1.2em;font-size:18px;line-height:1.6}.nl li{margin-bottom:6px}
+.rchoice{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.rchoice button{min-height:52px;border:2px solid var(--line);border-radius:14px;background:#fff;font:inherit;font-size:17px;font-weight:800;color:var(--fg);touch-action:manipulation}
+.rchoice button.on{border-color:var(--accent);background:#e4f1ed;color:var(--accent)}
+textarea.field{font-size:17px;min-height:0;resize:none}
+.msgc{margin-top:8px;padding:12px 14px;border-radius:14px;background:#fff7d6;border:2px solid #e3c96a;color:#4a3a00;text-align:left}
+.msgc b{display:block;font-size:14px;color:#7a5f00}.msgc .mt{font-size:18px;font-weight:800;line-height:1.45}.msgc small{color:#7a5f00}
+
+.msgc .mf{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+.msgc .btn{min-height:44px;font-size:16px;width:auto;padding:0 18px;border-radius:12px;background:#fff;color:#4a3a00;border:2px solid #c9a93a}
+.msgc.all{background:#e8f0fb;border-color:#9db8e0;color:#1f3350}.msgc.all b,.msgc.all small{color:#3a5a8a}.msgc.all .btn{color:#1f3350;border-color:#9db8e0}
+
+/* ダイレクトメッセージ（吹き出し・スクロールする履歴） */
+.msgc b{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.unp{font-style:normal;font-size:12px;font-weight:900;background:#c0392b;color:#fff;border-radius:99px;padding:1px 10px}.unp.ok{background:#3a7d6e}
+.msgc.done{background:#eef3ef;border-color:#b7cdbf;color:#2e4a3d}.msgc.done b{color:#3a6a55}
+.bub{margin-top:6px;max-width:88%}.bub .bt{padding:8px 12px;border-radius:14px;font-size:17px;font-weight:700;line-height:1.4;word-break:break-all}
+.bub small{display:block;font-size:12px;color:var(--sub);margin-top:2px}
+.bub.s .bt{background:#fff;border:1px solid #e3c96a;border-bottom-left-radius:4px;color:#4a3a00}
+.bub.c{margin-left:auto;text-align:right}.bub.c .bt{background:#3a7d6e;color:#fff;border-bottom-right-radius:4px;text-align:left}
+.bcode{font-size:12px;color:var(--sub);margin-top:2px}.bcode.c{text-align:right}
+.chat{height:30vh;min-height:120px;overflow-y:auto;overscroll-behavior:contain;background:#f4f2ec;border-radius:14px;padding:8px 10px 12px;margin:8px 0;-webkit-overflow-scrolling:touch}
+.dmhead{display:flex;align-items:center;justify-content:space-between;gap:8px}.dmhead .h1{font-size:22px}.dmhead .btn{width:auto;min-height:44px;font-size:16px;padding:0 16px}
+#dm .rchoice{flex-direction:row;flex-wrap:wrap}#dm .rchoice button{min-height:44px;font-size:15px;padding:0 12px}
