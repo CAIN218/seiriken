@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=50"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=51"></head>
 <body class="st-none"><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=50"></script><script src="common.js?v=50"></script>
+<script src="firebase-config.js?v=51"></script><script src="common.js?v=51"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -87,7 +87,7 @@ function leave() { myIds = []; mine = {}; selId = null; sig = ''; saveIds(); me 
 const allEnded = () => myIds.map(id => mine[id]).filter(Boolean).every(t => ['inroom', 'guided', 'cancelled', 'absent'].includes(t.status));
 
 /* ---------- 画面 ---------- */
-const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${noticeCard()}${tabsHtml()}${msgCard()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}${me ? '<div class="c"><button class="linkbtn" id="reportBtn">不具合を受付に知らせる</button></div>' : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div>${me ? '' : '<div class="c staffl"><a href="admin.html">スタッフ用ログイン</a></div>'}</div></div>`; };
+const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${noticeCard()}${tabsHtml()}${dmCard()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}${me ? '<div class="c"><button class="linkbtn" id="reportBtn">受付にメッセージを送る</button></div>' : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div>${me ? '' : '<div class="c staffl"><a href="admin.html">スタッフ用ログイン</a></div>'}</div></div>`; };
 const tabState = t => ({ called: '呼び出し', waiting: '順番待ち', inroom: '入室済み', guided: '入室済み', cancelled: 'キャンセル', absent: '無効' })[t.status] || '';
 // 3人以上のときは、2人1組ずつ別の整理券になる。券を切り替えるタブ
 const tabsHtml = () => {
@@ -103,9 +103,13 @@ const stubHtml = enabled => enabled
   ? `<div class="slw r"><div class="sl">${stubPaper('受付でもぎってください')}</div></div><div class="slw l"><div class="sl">${stubPaper('受付でもぎってください')}</div></div>`
   : `<div class="off">${stubPaper('')}</div>`;
 
-// 受付（スタッフ）から、この券に送られたお知らせ
-const msgAcked = () => me.msgAckAt && me.msgAckAt >= (me.msgAt || 0);
-const msgCard = () => me && me.msg && ['waiting', 'called'].includes(me.status) ? `<div class="msgc"><b>受付からのお知らせ</b><div class="mt">${esc(me.msg)}</div><div class="mf">${me.msgAt ? `<small>${fmtHM(new Date(me.msgAt))}</small>` : ''}${msgAcked() ? '<small>確認しました</small>' : '<button class="btn sub" id="msgOk">確認しました</button>'}</div></div>` : '';
+// 受付とのダイレクトメッセージ（dm の並び。common.js の dmList など）
+const bubHtml = (m, t) => `<div class="bub ${m.f}"><div class="bt">${esc(m.t)}</div><small>${m.f === 's' ? '受付' : 'あなた'}　${fmtHM(new Date(m.at))}${m.f === 'c' && t.dmReadAt >= m.at ? '　既読' : ''}</small></div>`;
+const dmCard = () => {
+  if (!me || !dmList(me).length || !['waiting', 'called'].includes(me.status)) return '';
+  const un = dmUnread(me), n = dmList(me).length;
+  return `<div class="msgc ${un ? '' : 'done'}"><b>受付とのダイレクトメッセージ${un ? '<i class="unp">未確認</i>' : '<i class="unp ok">返事済み</i>'}</b>${dmList(me).slice(-2).map(m => bubHtml(m, me)).join('')}<div class="mf">${un ? '<button class="btn" id="dmOk">確認しました</button>' : '<span></span>'}<button class="btn sub" id="dmOpen">${n > 2 ? '全部見る・返信' : '返信する'}</button></div></div>`;
+};
 // 全員へのお知らせ（スタッフが設定。閉じた人には、同じお知らせをもう出さない）
 const noticeClosed = () => { try { return localStorage.getItem('seiriken-nd') === String(cfg.noticeAt); } catch (e) { return false; } };
 const noticeCard = () => cfg.notice && !noticeClosed() ? `<div class="msgc all"><b>全体へのお知らせ</b><div class="mt">${esc(cfg.notice)}</div><div class="mf">${cfg.noticeAt ? `<small>${fmtHM(new Date(cfg.noticeAt))}</small>` : '<small></small>'}<button class="btn sub" id="noticeClose">閉じる</button></div></div>` : '';
@@ -171,7 +175,7 @@ function render() {
   if (!me) { app.innerHTML = myIds.length ? '<div class="scr"><p class="c small">読み込み中…</p></div>' : viewIssue(); wire(); return; }
   app.innerHTML = viewTicket();
   document.title = me.status === 'called' ? '【待機室へお越しください】整理券' : '整理券';
-  wire(); tick(); ackSeen(); ackMsg();
+  wire(); tick(); ackSeen(); ackDm(); renderChat();
 }
 
 function wire() {
@@ -188,9 +192,9 @@ function wire() {
       .catch(() => ref.update({ status: 'cancelled', cancelledAt: now }))
       .catch(e => alert(errText('CA', e)));
   };
-  if ($('reportBtn')) $('reportBtn').onclick = openReport;
+  document.querySelectorAll('#reportBtn, #dmOpen').forEach(b => b.onclick = openDm);
   if ($('noticeClose')) $('noticeClose').onclick = () => { try { localStorage.setItem('seiriken-nd', String(cfg.noticeAt)); } catch (e) {} render(); };
-  if ($('msgOk')) $('msgOk').onclick = () => { const id = me.id; db.collection('tickets').doc(id).update({ msgAckAt: Date.now() }).catch(e => alert(errText('RP', e))); };
+  if ($('dmOk')) $('dmOk').onclick = () => { $('dmOk').disabled = true; sendDm('確認しました').catch(e => { alert(errText('RP', e)); render(); }); };
   if ($('refresh')) $('refresh').onclick = () => { subAll(); };
   if ($('again')) $('again').onclick = leave;
   if ($('another')) $('another').onclick = () => { if (confirm('この端末に表示している整理券を外して、新しい整理券を発行します。\n今の整理券は、順番待ちの列に残ります。')) leave(); };
@@ -207,34 +211,48 @@ function showNotice() {
   document.getElementById('noticeOk').onclick = () => { try { localStorage.setItem(NOTICE_KEY, '1'); } catch (e) {} el.remove(); };
 }
 showNotice();
-let repAt = 0, repSel = '';
-const REPORT_CHOICES = ['画面が進まない・動かない', '呼ばれたのに表示が変わらない', '半券がもぎれない', 'その他'];
-function openReport() {
-  if (!me || document.getElementById('rep')) return;
-  const id = me.id, no = me.number > 0 ? me.number + '番' : '';
-  const el = document.createElement('div'); el.className = 'ov'; el.id = 'rep'; repSel = '';
-  el.innerHTML = `<div class="dlg" role="dialog" aria-modal="true"><div class="h1 c">受付に連絡する</div><p class="small c" style="margin:4px 0 10px">不具合があったときに、受付へ知らせます。送ったあとも、受付にお越しください。</p>
-    <div class="rchoice">${REPORT_CHOICES.map(c => `<button data-rc="${esc(c)}">${esc(c)}</button>`).join('')}</div>
-    <textarea id="repText" class="field" rows="2" maxlength="100" placeholder="くわしい状況（任意・100文字まで）"></textarea>
-    <div class="err c" id="repMsg" style="margin:6px 0"></div>
-    <button class="btn" id="repSend">受付に送る</button><button class="btn sub" id="repX" style="margin-top:8px">閉じる</button></div>`;
+// 受付とのダイレクトメッセージ。お客さんが送るのは、1通100文字まで・全部で40通まで
+let dmSentAt = 0;
+const DM_QUICK = ['確認しました', '今向かいます', '少し遅れます', '画面が進まない・動かない', '呼ばれたのに表示が変わらない', '半券がもぎれない'];
+async function sendDm(text, withCode) {
+  text = (text || '').trim().slice(0, 100);
+  if (!text || !me) return;
+  if (dmList(me).length >= 40) throw new Error('full');
+  const item = { f: 'c', t: text, at: Date.now() };
+  if (withCode && lastErr.at && Date.now() - lastErr.at < 600000) { item.code = lastErr.code; lastErr.at = 0; }
+  await Promise.race([db.collection('tickets').doc(me.id).update({ dm: firebase.firestore.FieldValue.arrayUnion(item) }), sleep(8000).then(() => { throw new Error('timeout'); })]);
+  dmSentAt = Date.now();
+}
+function renderChat() {
+  const box = document.getElementById('chatList'); if (!box || !me) return;
+  const ms = dmList(me), nearEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 60, first = !box.dataset.n;
+  box.innerHTML = ms.length ? ms.map(m => bubHtml(m, me) + (m.code ? `<div class="bcode ${m.f}">コード ${esc(m.code)}</div>` : '')).join('') : '<p class="small c">まだメッセージはありません。不具合や遅れるときなどは、下から送れます。</p>';
+  if (first || (nearEnd && +box.dataset.n !== ms.length)) box.scrollTop = box.scrollHeight;
+  box.dataset.n = ms.length;
+}
+function openDm() {
+  if (!me || document.getElementById('dm')) return;
+  const el = document.createElement('div'); el.className = 'ov'; el.id = 'dm';
+  el.innerHTML = `<div class="dlg" role="dialog" aria-modal="true"><div class="dmhead"><div class="h1">受付とのメッセージ</div><button class="btn sub" id="dmX">閉じる</button></div>
+    <div class="chat" id="chatList"></div>
+    <div class="rchoice">${DM_QUICK.map(c => `<button data-rc="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+    <textarea id="dmText" class="field" rows="2" maxlength="100" placeholder="メッセージ（100文字まで）"></textarea>
+    <div class="err c" id="dmMsg" style="margin:4px 0"></div>
+    <button class="btn" id="dmSend">送る</button></div>`;
   document.body.appendChild(el);
-  const $ = i => document.getElementById(i), msg = t => { $('repMsg').textContent = t; };
-  el.querySelectorAll('[data-rc]').forEach(b => b.onclick = () => { repSel = repSel === b.dataset.rc ? '' : b.dataset.rc; el.querySelectorAll('[data-rc]').forEach(x => x.classList.toggle('on', x.dataset.rc === repSel)); });
-  $('repX').onclick = () => el.remove();
-  $('repSend').onclick = async () => {
-    const text = [repSel, $('repText').value.trim()].filter(Boolean).join('：').slice(0, 100);
-    if (!text) { msg('内容を選ぶか、書いてください'); return; }
-    if (Date.now() - repAt < 20000) { msg('少し待ってから、もう一度送ってください'); return; }
-    $('repSend').disabled = true; msg('');
-    const code = lastErr.at && Date.now() - lastErr.at < 600000 ? lastErr.code : '';
-    try {
-      await Promise.race([db.collection('tickets').doc(id).update({ report: text, reportAt: Date.now(), reportCode: code }), sleep(8000).then(() => { throw new Error('timeout'); })]);
-      repAt = Date.now();
-      el.querySelector('.dlg').innerHTML = `<div class="h1 c">受付に送りました</div><p class="p c" style="margin:8px 0 14px">${no ? no + 'の' : ''}連絡を受付に送りました。スタッフが確認します。<br>お急ぎの場合は、受付にお越しください。</p><button class="btn" id="repX2">閉じる</button>`;
-      $('repX2').onclick = () => el.remove();
-    } catch (e) { msg(errText('RP', e)); $('repSend').disabled = false; }
+  const $ = i => document.getElementById(i);
+  el.querySelectorAll('[data-rc]').forEach(b => b.onclick = () => { $('dmText').value = b.dataset.rc; $('dmText').focus(); });
+  $('dmX').onclick = () => el.remove();
+  $('dmSend').onclick = async () => {
+    const t = $('dmText').value.trim();
+    if (!t) { $('dmMsg').textContent = '送る内容を選ぶか、書いてください'; return; }
+    if (Date.now() - dmSentAt < 3000) { $('dmMsg').textContent = '少し待ってから、もう一度送ってください'; return; }
+    $('dmSend').disabled = true; $('dmMsg').textContent = '';
+    try { await sendDm(t, true); $('dmText').value = ''; }
+    catch (e) { $('dmMsg').textContent = e.message === 'full' ? 'これ以上は送れません。受付にお越しください' : errText('RP', e); }
+    $('dmSend').disabled = false;
   };
+  renderChat(); ackDm();
 }
 
 /* ---------- 半券をもぎる ---------- */
@@ -379,12 +397,12 @@ async function pollStaff() {
   netUpdate();
 }
 setInterval(pollStaff, 300000); setTimeout(pollStaff, 8000);
-// 受付からのメッセージが画面に出たら、「届いた」印を1通につき1回だけ書く
-function ackMsg() {
-  if (!me || !me.msg || document.hidden || !['waiting', 'called'].includes(me.status)) return;
-  if (me.msgSeenAt && me.msgSeenAt >= (me.msgAt || 0)) return;
-  const k = me.id + ':' + me.msgAt; if (ackTried[k]) return; ackTried[k] = 1;
-  db.collection('tickets').doc(me.id).update({ msgSeenAt: Date.now() }).catch(e => { if (e.code !== 'permission-denied') delete ackTried[k]; });
+// 受付のメッセージが画面に出たら、「既読」の印（dmSeenAt）を、新しいメッセージ1通につき1回だけ書く
+function ackDm() {
+  if (!me || document.hidden || !(document.getElementById('dm') || ['waiting', 'called'].includes(me.status))) return;
+  const m = dmLastStaff(me); if (!m || (me.dmSeenAt || 0) >= m.at) return;
+  const k = me.id + ':' + m.at; if (ackTried[k]) return; ackTried[k] = 1;
+  db.collection('tickets').doc(me.id).update({ dmSeenAt: Date.now() }).catch(e => { if (e.code !== 'permission-denied') delete ackTried[k]; });
 }
 function ackSeen() {
   if (!me || me.status !== 'called' || me.seenAt || me.paper || document.hidden || ackTried[me.id]) return;
@@ -420,7 +438,7 @@ function syncSum() {
 // 別のアプリから戻ったときや、通信が復活したときは、つなぎ直して最新の状態を取り直す
 // 数秒切り替えただけなら読み直さない（つなぎ直すと読み取りが増える）。しばらく離れていたときだけ取り直す
 let hiddenAt = 0;
-document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else { ackSeen(); ackMsg(); pollStaff(); if (Date.now() - hiddenAt > 60000) subAll(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else { ackSeen(); ackDm(); pollStaff(); if (Date.now() - hiddenAt > 60000) subAll(); } });
 addEventListener('pageshow', e => { if (e.persisted) subAll(); });
 addEventListener('online', subAll);
 subAll();

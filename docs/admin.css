@@ -256,3 +256,12 @@ h2{border-left:0;padding-left:4px;font-size:14px;color:var(--sub)}
 .notice.info{background:#e8f0fb;color:#1f3350}
 #noticeBox .full{margin-top:4px;min-height:52px}
 #noticeText{width:100%;box-sizing:border-box;margin:8px 0;padding:10px;font:inherit;font-size:16px;border:2px solid var(--line);border-radius:12px;resize:none}
+
+/* ダイレクトメッセージ（吹き出し・スクロールする履歴） */
+.chat{max-height:240px;overflow-y:auto;overscroll-behavior:contain;background:#f1f2f7;border-radius:12px;padding:8px 10px 10px;margin:8px 0;-webkit-overflow-scrolling:touch}
+.bub{margin-top:6px;max-width:88%}.bub .bt{padding:8px 12px;border-radius:14px;font-size:16px;font-weight:700;line-height:1.4;word-break:break-all}
+.bub small{display:block;font-size:12px;color:var(--sub);margin-top:2px}
+.bub.you .bt{background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px}
+.bub.me{margin-left:auto;text-align:right}.bub.me .bt{background:var(--accent);color:#fff;border-bottom-right-radius:4px;text-align:left}
+.unp{font-style:normal;font-size:12px;font-weight:900;background:var(--bad);color:#fff;border-radius:99px;padding:1px 10px;margin-left:8px}
+.ack.bad{color:var(--bad)}

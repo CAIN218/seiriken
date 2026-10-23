@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=50"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=51"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -23,7 +23,7 @@
     <div id="stopNote"></div><div id="reports"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v50</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v51</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -110,7 +110,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=50"></script><script src="common.js?v=50"></script>
+<script src="firebase-config.js?v=51"></script><script src="common.js?v=51"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -255,18 +255,20 @@ function render() {
   const doneP = done.reduce((a, t) => a + (t.people || 0), 0);
   $('stats').innerHTML = `<span class="chip2">呼び出し中 <b>${room.length}</b>組</span><span class="chip2">入室済み <b>${doneP}</b>人</span><button id="statBad" class="chip2">無効 <b>${nBad}</b>組</button>`;
   $('statBad').onclick = () => { hFilter = 'bad'; hKind = 'all'; $('hq').value = ''; $('hist').hidden = false; renderHist(); };
-  const reps = list.filter(t => t.report && t.reportAt > (t.reportDoneAt || 0)).sort((a, b) => b.reportAt - a.reportAt);
-  $('reports').innerHTML = reps.length ? `<div class="repbox"><b>お客さんから連絡 ${reps.length}件</b>${reps.map(t => `<div class="repi"><div class="rt"><span class="rn">${nl(t)}</span> ${esc(t.name || '')}　<small>${fmtT(t.reportAt)}</small></div><div class="rm">${esc(t.report)}${t.reportCode ? `<small>（コード ${esc(t.reportCode)}）</small>` : ''}</div><div class="ra"><button class="mini" data-repopen="${t.id}">メッセージを送る</button><button class="mini ok" data-repdone="${t.id}">確認した</button></div></div>`).join('')}</div>` : '';
+  const reps = list.filter(dmCustUnread).sort((a, b) => dmLastCust(b).at - dmLastCust(a).at);
+  $('reports').innerHTML = reps.length ? `<div class="repbox"><b>お客さんからメッセージ ${reps.length}件</b>${reps.map(t => { const m = dmLastCust(t); return `<div class="repi"><div class="rt"><span class="rn">${nl(t)}</span> ${esc(t.name || '')}　<small>${fmtT(m.at)}</small></div><div class="rm">${esc(m.t)}${m.code ? `<small>（コード ${esc(m.code)}）</small>` : ''}</div><div class="ra"><button class="mini" data-repopen="${t.id}">開いて返信</button><button class="mini ok" data-repdone="${t.id}">既読にする</button></div></div>`; }).join('')}</div>` : '';
   $('stopNote').innerHTML = (cfg.closed ? `<div class="notice stop">発券を停止中${cfg.closedReason ? '：' + esc(cfg.closedReason) : ''}</div>` : '') + (cfg.notice ? `<div class="notice info">全員にお知らせ表示中：${esc(cfg.notice)}</div>` : '');
   document.body.style.background = cfg.closed ? '#f3e4e4' : '';
 
+  // 受付とのメッセージの状態：お客さんから未読は赤、送った分は「未読／既読」
+  const dmTag = t => dmCustUnread(t) ? '<span class="ack bad">返信あり</span>' : (dmLastStaff(t) ? `<span class="ack ${t.dmSeenAt >= dmLastStaff(t).at ? 'ok' : 'no'}">連絡：${t.dmSeenAt >= dmLastStaff(t).at ? '既読' : '未読'}</span>` : '');
   const rowHtml = (t, i) => {
     const called = t.status === 'called';
     const pill = called ? '呼び出し中' : (i === 0 ? '次の順番' : '順番待ち');
     const right = called ? (t.paper ? `<button class="mini ok" data-a="enter" data-id="${t.id}">入室済みにする</button>` : '') : t.queue ? `<button class="mini ok" data-a="enterw" data-id="${t.id}">入室済み</button>` : `<span class="dh" data-drag="${t.id}" aria-label="長押ししてドラッグで並べ替え">≡</span>`;
     const ack = called && !t.paper ? (t.seenAt ? `<span class="ack ok">届いた ${fmtT(t.seenAt)}</span>` : '<span class="ack no" hidden>未確認</span>') : '';
     return `<div class="row ${t.status}" data-id="${t.id}" data-since="${(called ? t.calledAt : t.createdAt) || ''}" data-kind="${called ? 'call' : 'wait'}" data-late="${called ? 1 : 0}">
-      <div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span><span class="el"></span>${ack}${t.msg ? `<span class="ack ${t.msgAckAt >= t.msgAt ? 'ok' : t.msgSeenAt >= t.msgAt ? 'ok' : 'no'}">連絡：${t.msgAckAt >= t.msgAt ? '確認済み' : t.msgSeenAt >= t.msgAt ? '届いた' : '未着'}</span>` : ''}${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
+      <div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span><span class="el"></span>${ack}${dmTag(t)}${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
   };
   const doneHtml = t => `<div class="row inroom" data-id="${t.id}"><div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill inroom">${t.torn ? '入室済み（もぎり）' : '入室済み'}</span><span class="el" style="font-size:14px">${fmtT(t.enteredAt)}</span></div></div></div></div>`;
   $('lists').innerHTML = `<div class="grid">
@@ -425,31 +427,42 @@ function renderSheet() {
   else if (isDone(t)) btns = b('reopen', '呼び出し中に戻す');
   else btns = `<div class="box" style="color:#5a6378">${stateName(t)}です。操作はありません。</div>`;
   $('rsTitle').innerHTML = `${nm(t)}　${label(t)}　<span class="pill ${isDone(t) ? 'inroom' : t.status}">${stateName(t)}</span>`;
-  const canMsg = !t.paper && !t.queue && !t.walkin && ['waiting', 'called'].includes(t.status);
-  const msgBox = canMsg ? `<details class="msgbox" ${t.msg ? 'open' : ''}><summary>お客さんにメッセージを送る</summary>
-    ${t.msg ? `<div class="msgnow"><div>送信中：「${esc(t.msg)}」<br><b>${msgState(t)}</b></div><button class="mini" data-msgclear="${t.id}">消す</button></div>` : ''}
-    <div class="msgpre">${MSG_PRESETS.map((m, i) => `<button class="mini" data-msgpre="${i}">${esc(m)}</button>`).join('')}</div>
+  const canDm = !t.paper && !t.queue && !t.walkin;
+  const sendOk = canDm && ['waiting', 'called'].includes(t.status);
+  const msgBox = canDm && (sendOk || dmList(t).length) ? `<details class="msgbox" ${dmList(t).length ? 'open' : ''}><summary>お客さんとのメッセージ${dmCustUnread(t) ? '<i class="unp">返信あり</i>' : ''}</summary>
+    <div class="chat" id="chatList" data-id="${t.id}">${dmList(t).length ? dmList(t).map(m => sbub(m, t)).join('') : '<p class="small" style="text-align:center;color:#8a93a6">まだメッセージはありません</p>'}</div>
+    ${sendOk ? `<div class="msgpre">${MSG_PRESETS.map((m, i) => `<button class="mini" data-msgpre="${i}">${esc(m)}</button>`).join('')}</div>
     <textarea id="msgText" data-id="${t.id}" rows="2" maxlength="100" placeholder="メッセージ（100文字まで）"></textarea>
-    <button class="sbtn btn-ok" id="msgSend" data-id="${t.id}">この内容を送る</button></details>` : '';
-  // 入力中に画面が更新されても、書きかけの文字と開閉を残す
-  const old = $('msgText'), keep = old && { v: old.value, f: document.activeElement === old, o: old.closest('details').open, id: old.dataset.id };
-  $('rsBody').innerHTML = `<div class="ho" style="margin:0 2px 8px">${outline(t)}</div><div class="sacts">${btns}</div>${msgBox}${t.report ? `<div class="box" style="margin-top:10px"><b>お客さんからの連絡</b><div>${esc(t.report)}</div><small>${fmtT(t.reportAt)}${t.reportCode ? '　コード ' + esc(t.reportCode) : ''}</small></div>` : ''}`;
+    <button class="sbtn btn-ok" id="msgSend" data-id="${t.id}">送る</button>` : ''}
+    ${dmList(t).length ? `<button class="mini" data-msgclear="${t.id}" style="margin-top:8px">会話を消す</button>` : ''}</details>` : '';
+  // 入力中に画面が更新されても、書きかけの文字と開閉・スクロールの位置を残す
+  const old = $('msgText'), oc = $('chatList'), keep = old && { v: old.value, f: document.activeElement === old, o: old.closest('details').open, id: old.dataset.id };
+  const keepC = oc && oc.dataset.id === t.id ? { top: oc.scrollTop, end: oc.scrollHeight - oc.scrollTop - oc.clientHeight < 60 } : null;
+  $('rsBody').innerHTML = `<div class="ho" style="margin:0 2px 8px">${outline(t)}</div><div class="sacts">${btns}</div>${msgBox}`;
   const nw = $('msgText'); if (keep && nw && keep.id === t.id) { nw.value = keep.v; nw.closest('details').open = keep.o; if (keep.f) nw.focus(); }
+  const nc = $('chatList'); if (nc) nc.scrollTop = !keepC || keepC.end ? nc.scrollHeight : keepC.top;
+  markRead(t);
 }
-// お客さんの券に表示するメッセージ（その券の分だけの書き込み。読み取りは増えない）
-// お客さんの側の状態：送った → 画面に出た（届いた）→ 「確認しました」を押した
-const msgState = t => t.msgAckAt && t.msgAckAt >= t.msgAt ? `確認済み ${fmtT(t.msgAckAt)}` : t.msgSeenAt && t.msgSeenAt >= t.msgAt ? `届いた ${fmtT(t.msgSeenAt)}（まだ確認ボタンは押されていません）` : '未着（お客さんの画面にまだ出ていません）';
+// お客さんとのダイレクトメッセージ（その券の分だけの書き込み。購読は増えない）
+const sbub = (m, t) => `<div class="bub ${m.f === 's' ? 'me' : 'you'}"><div class="bt">${esc(m.t)}</div><small>${m.f === 's' ? '受付' : 'お客さん'}　${fmtT(m.at)}${m.f === 's' && t.dmSeenAt >= m.at ? '　既読' : ''}${m.code ? '　コード ' + esc(m.code) : ''}</small></div>`;
 const NOTICE_PRESETS = ['整理券の発行をいったん止めています', '呼び出しが遅れています。画面を開いたままお待ちください', '呼ばれた方は、受付までお越しください'];
 const MSG_PRESETS = ['まもなく呼びます。会場の近くでお待ちください', '受付までお越しください', '呼び出しに気づいたら、受付にお声がけください'];
+const readTried = {};
+function markRead(t) { // お客さんの新しいメッセージを開いたら、既読にする（1通につき1回）
+  if (!dmCustUnread(t)) return;
+  const k = t.id + ':' + dmLastCust(t).at; if (readTried[k]) return; readTried[k] = 1;
+  db.collection('tickets').doc(t.id).update({ dmReadAt: Date.now() }).catch(err => { delete readTried[k]; alert(errText('MS', err)); });
+}
 async function sendMsg(id, text) {
   text = (text || '').trim().slice(0, 100); if (!text) return;
-  try { await db.collection('tickets').doc(id).update({ msg: text, msgAt: Date.now(), msgSeenAt: del(), msgAckAt: del() }); } catch (e) { alert(errText('MS', e)); }
+  const t = list.find(x => x.id === id); if (t && dmList(t).length >= 40) { alert('このお客さんとのメッセージは、40通まで送れます。「会話を消す」を押してから送ってください。'); return; }
+  try { await db.collection('tickets').doc(id).update({ dm: firebase.firestore.FieldValue.arrayUnion({ f: 's', t: text, at: Date.now() }) }); $('msgText').value = ''; } catch (e) { alert(errText('MS', e)); }
 }
 document.addEventListener('click', e => {
   const pre = e.target.closest('[data-msgpre]'); if (pre) { $('msgText').value = MSG_PRESETS[+pre.dataset.msgpre]; return; }
-  const clr = e.target.closest('[data-msgclear]'); if (clr) { db.collection('tickets').doc(clr.dataset.msgclear).update({ msg: del(), msgAt: del(), msgSeenAt: del(), msgAckAt: del() }).catch(err => alert(errText('MS', err))); return; }
-  const snd = e.target.closest('#msgSend'); if (snd) sendMsg(snd.dataset.id, $('msgText').value);
-  const rd = e.target.closest('[data-repdone]'); if (rd) { const t = list.find(x => x.id === rd.dataset.repdone); if (t) db.collection('tickets').doc(t.id).update({ reportDoneAt: t.reportAt }).catch(err => alert(errText('OP', err))); return; }
+  const clr = e.target.closest('[data-msgclear]'); if (clr) { if (confirm('このお客さんとのメッセージを、すべて消します。よろしいですか？')) db.collection('tickets').doc(clr.dataset.msgclear).update({ dm: del(), dmSeenAt: del(), dmReadAt: del() }).catch(err => alert(errText('MS', err))); return; }
+  const snd = e.target.closest('#msgSend'); if (snd) { sendMsg(snd.dataset.id, $('msgText').value); return; }
+  const rd = e.target.closest('[data-repdone]'); if (rd) { const t = list.find(x => x.id === rd.dataset.repdone); if (t) markRead(t); return; }
   const ro = e.target.closest('[data-repopen]'); if (ro) openSheet(ro.dataset.repopen);
 });
 $('rsClose').onclick = closeSheet;

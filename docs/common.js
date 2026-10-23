@@ -113,6 +113,12 @@ function causeKey(e) {
   return 'X0';
 }
 // 「○○できませんでした。原因：…。対処：…（エラーコード XX-YY）」の文章を作る
+// 受付とのダイレクトメッセージ。ticket.dm は { f: 's'（受付）か 'c'（お客さん）, t: 本文, at: 時刻, code?: エラーコード } の並び
+const dmList = t => (t && Array.isArray(t.dm) ? t.dm : []);
+const dmLastStaff = t => dmList(t).filter(m => m.f === 's').pop();
+const dmLastCust = t => dmList(t).filter(m => m.f === 'c').pop();
+const dmUnread = t => { const m = dmLastStaff(t); return !!m && !dmList(t).some(x => x.f === 'c' && x.at > m.at); }; // お客さん：受付の最後のメッセージに、まだ返事をしていない
+const dmCustUnread = t => { const m = dmLastCust(t); return !!m && m.at > (t.dmReadAt || 0); };                  // スタッフ：お客さんの最後のメッセージを、まだ読んでいない
 let lastErr = { code: '', at: 0 }; // 直前の失敗のコード（受付への連絡に添える）
 function errText(op, e) {
   const k = causeKey(e), c = CAUSES[k], raw = k === 'X0' && e ? ':' + (e.code || e.message || '').toString().slice(0, 40) : '';
