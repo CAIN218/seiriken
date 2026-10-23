@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=52"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=53"></head>
 <body class="st-none"><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=52"></script><script src="common.js?v=52"></script>
+<script src="firebase-config.js?v=53"></script><script src="common.js?v=53"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -107,8 +107,8 @@ const stubHtml = enabled => enabled
 const bubHtml = (m, t) => `<div class="bub ${m.f}"><div class="bt">${esc(m.t)}</div><small>${m.f === 's' ? '受付' : 'あなた'}　${fmtHM(new Date(m.at))}${m.f === 'c' && t.dmReadAt >= m.at ? '　既読' : ''}</small></div>`;
 const dmCard = () => {
   if (!me || !dmList(me).length || !['waiting', 'called'].includes(me.status)) return '';
-  const un = dmUnread(me), n = dmList(me).length;
-  return `<div class="msgc ${un ? '' : 'done'}"><b>受付とのダイレクトメッセージ${un ? '<i class="unp">新着</i>' : ''}</b>${dmList(me).slice(-2).map(m => bubHtml(m, me)).join('')}<div class="mf">${un ? '<button class="linkbtn" id="dmOk">確認しました</button>' : '<span></span>'}<button class="linkbtn" id="dmOpen">${n > 2 ? '全部見る・返信' : '返信する'}</button></div></div>`;
+  const n = dmList(me).length;
+  return `<div class="msgc"><b>受付とのダイレクトメッセージ</b>${dmList(me).slice(-2).map(m => bubHtml(m, me)).join('')}<div class="mf"><span></span><button class="linkbtn" id="dmOpen">${n > 2 ? '全部見る・返信' : '返信する'}</button></div></div>`;
 };
 // 全員へのお知らせ（スタッフが設定。閉じた人には、同じお知らせをもう出さない）
 const noticeClosed = () => { try { return localStorage.getItem('seiriken-nd') === String(cfg.noticeAt); } catch (e) { return false; } };
@@ -194,7 +194,6 @@ function wire() {
   };
   document.querySelectorAll('#reportBtn, #dmOpen').forEach(b => b.onclick = openDm);
   if ($('noticeClose')) $('noticeClose').onclick = () => { try { localStorage.setItem('seiriken-nd', String(cfg.noticeAt)); } catch (e) {} render(); };
-  if ($('dmOk')) $('dmOk').onclick = () => { $('dmOk').disabled = true; sendDm('確認しました').catch(e => { alert(errText('RP', e)); render(); }); };
   if ($('refresh')) $('refresh').onclick = () => { subAll(); };
   if ($('again')) $('again').onclick = leave;
   if ($('another')) $('another').onclick = () => { if (confirm('この端末に表示している整理券を外して、新しい整理券を発行します。\n今の整理券は、順番待ちの列に残ります。')) leave(); };
