@@ -128,7 +128,8 @@ h2{font-size:18px;color:var(--fg);border-left:6px solid var(--line);padding-left
 
 /* 絵文字をやめて、文字ボタンにする */
 .ico{font-size:14px;font-weight:800;min-width:0;padding:0 10px}
-.pmark{display:inline-block;font-size:11px;font-weight:800;line-height:1;padding:2px 4px;border:1.5px solid var(--sub);border-radius:5px;color:var(--sub);vertical-align:1px}
+.pmark{display:inline-block;font-size:16px;font-weight:900;line-height:1;padding:5px 9px;border-radius:7px;background:#6b4fd3;color:#fff;vertical-align:1px;letter-spacing:.05em}
+.row.paperrow{border-left:6px solid #6b4fd3}
 .hrow .ico2,.modal.big .ico2{width:auto;min-width:64px;padding:0 12px;font-size:15px;font-weight:800}
 
 /* v36 見直し */
