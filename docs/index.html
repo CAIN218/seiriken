@@ -1,41 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=48"></head>
-<body class="st-none"><div id="inapp" hidden></div><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
-<script>
-/* QRリーダーなどのアプリ内ブラウザでは、整理券の情報が消えることがあるので、ふつうのブラウザで開くよう案内する */
-(function () {
-  const ua = navigator.userAgent;
-  const url = () => location.href.split('#')[0];
-  const android = /Android/i.test(ua), ios = /iPhone|iPad|iPod/i.test(ua);
-  const inApp = (android && /; wv\)|Version\/[\d.]+ Chrome|FBAN|FBAV|Instagram|Line\/|MicroMessenger|Twitter|KAKAOTALK/i.test(ua)) ||
-    (ios && /AppleWebKit/i.test(ua) && !/Safari\//i.test(ua)) || /FBAN|FBAV|Instagram|Line\/|MicroMessenger|Twitter/i.test(ua);
-  // iPhoneのスキャナーはSafariと見分けがつかないことがあるので、券を取った後はSafariで開き直すよう案内する
-  window.softInapp = function () {
-    const el = document.getElementById('inapp');
-    if (!ios || !el.hidden || navigator.standalone || matchMedia('(display-mode: standalone)').matches) return;
-    el.innerHTML = '<b>この整理券は、Safariで開き直すと安心です</b><br><small>QRリーダーアプリの中だと、整理券が消えることがあります。下のボタンでアドレスをコピーして、Safariに貼りつけて開いてください</small><br><a class="btn" id="inapp-copy">アドレスをコピー</a> <a class="btn sub" id="inapp-x">閉じる</a>';
-    el.hidden = false;
-    document.getElementById('inapp-x').onclick = () => { el.hidden = true; el.dataset.x = 1; };
-    const cp = document.getElementById('inapp-copy');
-    cp.onclick = async () => { try { await navigator.clipboard.writeText(url()); cp.textContent = 'コピーしました。Safariに貼りつけてください'; } catch (e) { cp.textContent = url(); } };
-  };
-  if (!inApp || /CriOS|FxiOS|EdgiOS/.test(ua) && !/Line\/|FBAN|Instagram/.test(ua)) return;
-  const el = document.getElementById('inapp');
-  let h = '<b>このままだと整理券が消えることがあります</b><br>ふつうのブラウザで開いてください';
-  if (android) h += '<br><a class="btn" id="inapp-go">ブラウザで開く</a>';
-  else h += '<br><small>画面の右下か上のメニューから「Safariで開く」を選ぶか、下のボタンでアドレスをコピーして、Safariに貼りつけてください</small><br><a class="btn" id="inapp-copy">アドレスをコピー</a>';
-  el.innerHTML = h; el.hidden = false;
-  const go = document.getElementById('inapp-go');
-  if (go) go.onclick = () => { const u = new URL(url()); location.href = 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end'; };
-  const cp = document.getElementById('inapp-copy');
-  if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(url()); cp.textContent = 'コピーしました。Safariに貼りつけてください'; } catch (e) { cp.textContent = url(); } };
-})();
-</script>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=49"></head>
+<body class="st-none"><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=48"></script><script src="common.js?v=48"></script>
+<script src="firebase-config.js?v=49"></script><script src="common.js?v=49"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -44,8 +14,8 @@ let me = null, sum = {}, cfg = {}, dragging = false, pending = false;
 try { myIds = (localStorage.getItem(KEY) || new URLSearchParams(location.search).get('t') || '').split(',').filter(Boolean); nick = localStorage.getItem('seiriken-nick') || ''; } catch (e) {}
 const app = document.getElementById('app');
 const line = () => sum.line || [];
-const showWait = () => cfg.showWait !== false;
-const gapSec = () => sum.avgGapSec || DEFAULT_GAP_SEC;
+const showWait = () => waitModeOf(cfg) !== 'off';
+const gapSec = () => gapSecOf(cfg, sum.avgGapSec);
 const fmtHM = d => d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false });
 const fmtHMS = ms => new Date(ms).toLocaleTimeString('ja-JP', { hour12: false });
 // 戻ってきてほしい時刻（5分単位の目安）
@@ -62,7 +32,6 @@ function saveIds() {
     if (myIds.length) { localStorage.setItem(KEY, myIds.join(',')); u.searchParams.set('t', myIds.join(',')); }
     else { localStorage.removeItem(KEY); u.searchParams.delete('t'); }
     history.replaceState(null, '', u);
-    if (myIds.length && window.softInapp && !document.getElementById('inapp').dataset.x) softInapp();
   } catch (e) {}
 }
 // 画面に出す券：呼び出し中があればそれ、なければ順番待ちの先頭。券の状態が変わったら、自分で選んだ券より優先して切り替える
@@ -118,7 +87,7 @@ function leave() { myIds = []; mine = {}; selId = null; sig = ''; saveIds(); me 
 const allEnded = () => myIds.map(id => mine[id]).filter(Boolean).every(t => ['inroom', 'guided', 'cancelled', 'absent'].includes(t.status));
 
 /* ---------- 画面 ---------- */
-const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${tabsHtml()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div>${me ? '' : '<div class="c staffl"><a href="admin.html">スタッフ用ログイン</a></div>'}</div></div>`; };
+const shell = (bg, top, bottom) => { document.body.className = 'st-' + bg; return `<div class="scr"><div class="top">${usrTag()}${tabsHtml()}${msgCard()}${TEST ? '<div class="banner test">テストモードです（テスト用の整理券）</div>' : ''}${top}</div><div class="bottom">${bottom || ''}${me && (TEST || cfg.multiTicket !== false) && !['cancelled', 'absent', 'inroom', 'guided'].includes(me.status) ? `<div class="c"><button class="linkbtn" id="another">別の整理券を発行する${TEST ? '（テスト用）' : ''}</button></div>` : ''}${me ? '<div class="c"><button class="linkbtn" id="reportBtn">不具合を受付に知らせる</button></div>' : ''}<div class="small c upd">最終更新 <span id="last">${fmtHMS(lastOk)}</span>　<button class="linkbtn" id="refresh">更新する</button></div>${me ? '' : '<div class="c staffl"><a href="admin.html">スタッフ用ログイン</a></div>'}</div></div>`; };
 const tabState = t => ({ called: '呼び出し', waiting: '順番待ち', inroom: '入室済み', guided: '入室済み', cancelled: 'キャンセル', absent: '無効' })[t.status] || '';
 // 3人以上のときは、2人1組ずつ別の整理券になる。券を切り替えるタブ
 const tabsHtml = () => {
@@ -134,6 +103,8 @@ const stubHtml = enabled => enabled
   ? `<div class="slw r"><div class="sl">${stubPaper('受付でもぎってください')}</div></div><div class="slw l"><div class="sl">${stubPaper('受付でもぎってください')}</div></div>`
   : `<div class="off">${stubPaper('')}</div>`;
 
+// 受付（スタッフ）から、この券に送られたお知らせ
+const msgCard = () => me && me.msg && ['waiting', 'called'].includes(me.status) ? `<div class="msgc"><b>受付からのお知らせ</b><div class="mt">${esc(me.msg)}</div>${me.msgAt ? `<small>${fmtHM(new Date(me.msgAt))}</small>` : ''}</div>` : '';
 const usrTag = () => me && me.name ? `<div class="usr">${esc(me.name)}さん</div>` : '';
 const tkHead = `<div class="tk-band"><span>${esc(EVENT_TITLE)}</span><small>整理券</small></div>`;
 
@@ -213,10 +184,51 @@ function wire() {
       .catch(() => ref.update({ status: 'cancelled', cancelledAt: now }))
       .catch(e => alert(errText('CA', e)));
   };
+  if ($('reportBtn')) $('reportBtn').onclick = openReport;
   if ($('refresh')) $('refresh').onclick = () => { subAll(); };
   if ($('again')) $('again').onclick = leave;
   if ($('another')) $('another').onclick = () => { if (confirm('この端末に表示している整理券を外して、新しい整理券を発行します。\n今の整理券は、順番待ちの列に残ります。')) leave(); };
   setupTear();
+}
+
+/* ---------- 開いたときの確認と、受付への連絡 ---------- */
+const NOTICE_KEY = 'seiriken-notice-' + today();
+function showNotice() {
+  try { if (localStorage.getItem(NOTICE_KEY)) return; } catch (e) {}
+  const el = document.createElement('div'); el.className = 'ov'; el.id = 'notice';
+  el.innerHTML = '<div class="dlg" role="dialog" aria-modal="true"><div class="h1 c">ご確認ください</div><ul class="nl"><li>生徒が開発しているので、万が一不具合があれば受付にお越しください。</li><li>待ち時間は目安です。</li></ul><button class="btn" id="noticeOk">確認しました</button></div>';
+  document.body.appendChild(el);
+  document.getElementById('noticeOk').onclick = () => { try { localStorage.setItem(NOTICE_KEY, '1'); } catch (e) {} el.remove(); };
+}
+showNotice();
+let repAt = 0, repSel = '';
+const REPORT_CHOICES = ['画面が進まない・動かない', '呼ばれたのに表示が変わらない', '半券がもぎれない', 'その他'];
+function openReport() {
+  if (!me || document.getElementById('rep')) return;
+  const id = me.id, no = me.number > 0 ? me.number + '番' : '';
+  const el = document.createElement('div'); el.className = 'ov'; el.id = 'rep'; repSel = '';
+  el.innerHTML = `<div class="dlg" role="dialog" aria-modal="true"><div class="h1 c">受付に連絡する</div><p class="small c" style="margin:4px 0 10px">不具合があったときに、受付へ知らせます。送ったあとも、受付にお越しください。</p>
+    <div class="rchoice">${REPORT_CHOICES.map(c => `<button data-rc="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+    <textarea id="repText" class="field" rows="2" maxlength="100" placeholder="くわしい状況（任意・100文字まで）"></textarea>
+    <div class="err c" id="repMsg" style="margin:6px 0"></div>
+    <button class="btn" id="repSend">受付に送る</button><button class="btn sub" id="repX" style="margin-top:8px">閉じる</button></div>`;
+  document.body.appendChild(el);
+  const $ = i => document.getElementById(i), msg = t => { $('repMsg').textContent = t; };
+  el.querySelectorAll('[data-rc]').forEach(b => b.onclick = () => { repSel = repSel === b.dataset.rc ? '' : b.dataset.rc; el.querySelectorAll('[data-rc]').forEach(x => x.classList.toggle('on', x.dataset.rc === repSel)); });
+  $('repX').onclick = () => el.remove();
+  $('repSend').onclick = async () => {
+    const text = [repSel, $('repText').value.trim()].filter(Boolean).join('：').slice(0, 100);
+    if (!text) { msg('内容を選ぶか、書いてください'); return; }
+    if (Date.now() - repAt < 20000) { msg('少し待ってから、もう一度送ってください'); return; }
+    $('repSend').disabled = true; msg('');
+    const code = lastErr.at && Date.now() - lastErr.at < 600000 ? lastErr.code : '';
+    try {
+      await Promise.race([db.collection('tickets').doc(id).update({ report: text, reportAt: Date.now(), reportCode: code }), sleep(8000).then(() => { throw new Error('timeout'); })]);
+      repAt = Date.now();
+      el.querySelector('.dlg').innerHTML = `<div class="h1 c">受付に送りました</div><p class="p c" style="margin:8px 0 14px">${no ? no + 'の' : ''}連絡を受付に送りました。スタッフが確認します。<br>お急ぎの場合は、受付にお越しください。</p><button class="btn" id="repX2">閉じる</button>`;
+      $('repX2').onclick = () => el.remove();
+    } catch (e) { msg(errText('RP', e)); $('repSend').disabled = false; }
+  };
 }
 
 /* ---------- 半券をもぎる ---------- */

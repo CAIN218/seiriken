@@ -20,7 +20,12 @@ service cloud.firestore {
         // 呼び出しがお客さんの画面に届いた印（seenAt）。呼び出し中の券に、1回だけ書ける
         || (resource.data.status == 'called' && request.resource.data.status == 'called'
             && !('seenAt' in resource.data)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt']));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt']))
+        // お客さんから受付への連絡（report）。100文字まで、何度でも送れる
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['report', 'reportAt', 'reportCode'])
+            && request.resource.data.report is string && request.resource.data.report.size() <= 100
+            && request.resource.data.reportAt is number
+            && (!('reportCode' in request.resource.data) || (request.resource.data.reportCode is string && request.resource.data.reportCode.size() <= 40)));
       allow delete: if request.auth != null;
     }
     match /summary/{day} {

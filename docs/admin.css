@@ -237,3 +237,18 @@ h2{border-left:0;padding-left:4px;font-size:14px;color:var(--sub)}
 
 /* お客さんの画面に呼び出しが届いたか */
 .ack{font-weight:800;font-size:14px;white-space:nowrap}.ack.ok{color:var(--ok)}.ack.no{color:#a8741a}
+
+/* 待ち時間の設定・お客さんとのメッセージ */
+.wbox{padding:8px 0;border-bottom:1px solid var(--line)}
+.wmin{display:flex;align-items:center;gap:10px;margin-top:10px;font-weight:800;font-size:18px}
+.wmin button{width:52px;height:52px;border-radius:14px;background:#fff;border:2px solid var(--line);font-size:26px;font-weight:900;color:var(--fg)}
+.wmin b{font-size:32px;min-width:1.6em;text-align:center}
+.msgbox{margin-top:12px;padding:10px;background:#fff;border-radius:14px;border:1px solid var(--line)}
+.msgbox summary{font-weight:800;font-size:17px;min-height:40px;display:flex;align-items:center}
+.msgbox textarea{width:100%;box-sizing:border-box;margin:8px 0;padding:10px;font:inherit;font-size:16px;border:2px solid var(--line);border-radius:12px;resize:none}
+.msgpre{display:flex;flex-direction:column;gap:6px}.msgpre .mini{text-align:left;min-height:44px;white-space:normal}
+.msgnow{background:#fff7d6;border-radius:10px;padding:8px 10px;margin:6px 0;font-size:15px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+.repbox{margin-top:8px;padding:10px;border-radius:12px;background:#fde8e8;border:2px solid var(--bad);color:#6b1f1f}
+.repbox>b{display:block;margin-bottom:6px}
+.repi{background:#fff;border-radius:10px;padding:8px 10px;margin-top:6px}
+.repi .rn{font-weight:900;font-size:18px}.repi .rm{margin:4px 0;font-weight:700}.repi .ra{display:flex;gap:8px;justify-content:flex-end}
