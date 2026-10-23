@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=56"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=57"></head>
 <body class="st-none"><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=56"></script><script src="common.js?v=56"></script>
+<script src="firebase-config.js?v=57"></script><script src="common.js?v=57"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -144,10 +144,10 @@ function viewTicket() {
   const perf = on => `<div class="tk-perf"><i class="n l"></i><i class="n r"></i><div class="zig"></div>${on ? '<div class="tear-h" id="tearH"><span class="tl">なぞってもぎる →</span></div>' : '<div class="tear-h off"></div>'}</div>`;
 
   if (me.status === 'called') {
-    return shell('call', `<div class="h1 c" id="hd" style="font-size:clamp(24px,7.4vw,34px)">待機室へお越しください</div>
+    return shell('call', `<div class="h1 c" id="hd" style="font-size:clamp(24px,7.4vw,34px)">受付へお越しください</div>
       <div class="tk call">${body()}${perf(true)}<div class="tk-stub">${stubHtml(true)}</div></div>
       ${tearErr ? `<div class="err c" id="tearErr">${esc(tearErr)}</div>` : ''}`,
-      `<div class="small c">待機室で、丸いつまみから右へなぞって半券をもぎり、スタッフにこの画面をお見せください。</div>`);
+      `<div class="small c">受付で、丸いつまみから右へなぞって半券をもぎり、スタッフにこの画面をお見せください。</div>`);
   }
   if (me.status === 'inroom' || me.status === 'guided') {
     return shell('in', `<div class="h1 c" style="font-size:clamp(24px,7.4vw,34px)">入室しました</div>
@@ -166,7 +166,7 @@ function viewTicket() {
   const info = `<div class="tk-eta"><div class="huge" style="font-size:clamp(44px,14vw,64px)">${aheadTxt}</div><div class="p">${soon ? 'まもなくお呼びします' : showWait() ? `目安：${eta}` : 'この画面でお待ちください'}</div></div>`;
   const top = (soon ? '<div class="h1 c" style="font-size:clamp(22px,6.4vw,30px)">会場の近くでお待ちください</div>' : '')
     + `<div class="tk wait">${body(info)}${perf(false)}<div class="tk-stub">${stubHtml(false)}</div></div>`
-    + (soon ? '' : `<div class="card p">${showWait() ? eta + 'に、会場へお戻りください。' : ''}この画面を開いたままお待ちください。順番が来ると、表示が変わります。</div>`);
+    + (soon ? '' : `<div class="card p">${showWait() ? eta + 'に、会場へお戻りください。' : ''}この画面を開いたままお待ちください。順番が来ると表示が変わりますので、呼ばれたら受付へお越しください。</div>`);
   return shell(soon ? 'soon' : 'wait', top, cancelBtn());
 }
 
@@ -174,7 +174,7 @@ function render() {
   if (dragging || (document.activeElement && document.activeElement.id === 'nick')) { pending = true; return; }
   if (!me) { app.innerHTML = myIds.length ? '<div class="scr"><p class="c small">読み込み中…</p></div>' : viewIssue(); wire(); return; }
   app.innerHTML = viewTicket();
-  document.title = me.status === 'called' ? '【待機室へお越しください】整理券' : '整理券';
+  document.title = me.status === 'called' ? '【受付へお越しください】整理券' : '整理券';
   wire(); tick(); ackSeen(); ackDm(); renderChat();
 }
 
@@ -305,7 +305,7 @@ async function tear(tk, h) {
     // 落ちた半券を、フェードインで元に戻す
     stampEl.remove(); tk.classList.remove('ripped', 'fin', 'in', 'shake', 'tdrag'); tk.classList.add('call', 'back');
     tk.style.setProperty('--p', 0); h.style.transform = ''; h.style.transition = ''; h.style.opacity = '';
-    if (hd) hd.textContent = '待機室へお越しください';
+    if (hd) hd.textContent = '受付へお越しください';
     document.body.className = 'st-call';
     if (!document.getElementById('tearErr')) tk.insertAdjacentHTML('afterend', tearErrHtml());
     setTimeout(() => tk.classList.remove('back'), 400);
