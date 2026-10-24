@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=67"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=68"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -23,7 +23,7 @@
     <div id="stopNote"></div><div id="reports"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v67</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v68</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -110,7 +110,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=67"></script><script src="common.js?v=67"></script>
+<script src="firebase-config.js?v=68"></script><script src="common.js?v=68"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -272,7 +272,7 @@ function render() {
     const right = called ? (t.paper ? `<button class="mini ok" data-a="enter" data-id="${t.id}">入室済みにする</button>` : '') : t.queue ? `<button class="mini ok" data-a="enterw" data-id="${t.id}">入室済み</button>` : `<span class="dh" data-drag="${t.id}" aria-label="長押ししてドラッグで並べ替え">≡</span>`;
     const ack = called && !t.paper ? (t.seenAt ? `<span class="ack ok">届いた ${fmtT(t.seenAt)}</span>` : '<span class="ack no" hidden>未確認</span>') : '';
     return `<div class="row ${t.status}${t.paper ? ' paperrow' : ''}" data-id="${t.id}" data-since="${(called ? t.calledAt : t.createdAt) || ''}" data-kind="${called ? 'call' : 'wait'}" data-late="${called ? 1 : 0}">
-      <div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span>${!called && etaOf(t) ? `<span class="etax">来る時刻 ${etaOf(t)}</span>` : ''}<span class="el"></span>${ack}${dmTag(t)}${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
+      <div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span>${called ? (t.etaAt ? `<span class="etax">来る時刻 ${new Date(t.etaAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false })}ごろ</span>` : '') : etaOf(t) ? `<span class="etax">来る時刻 ${etaOf(t)}</span>` : ''}<span class="el"></span>${ack}${dmTag(t)}${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
   };
   const doneHtml = t => `<div class="row inroom${t.paper ? ' paperrow' : ''}" data-id="${t.id}"><div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill inroom">${t.torn ? '入室済み（もぎり）' : '入室済み'}</span><span class="el" style="font-size:14px">${fmtT(t.enteredAt)}</span></div></div></div></div>`;
   $('lists').innerHTML = `<div class="grid">
