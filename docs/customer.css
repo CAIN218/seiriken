@@ -242,3 +242,9 @@ textarea.field{font-size:17px;min-height:0;resize:none}
 /* v69 つまみを内側に寄せて大きくし、まわりも触れる範囲にする（画面の左端だと、戻る操作と重なってなぞりにくかった） */
 .tear-h::after{content:"";position:absolute;inset:-14px -10px -14px -10px;border-radius:50%}
 .tear-h::before{font-size:36px}
+
+/* v70 緑のつまみをやめて、半券そのものを右になぞってもぎる（透明の範囲を半券いっぱいに広げる） */
+.tk-perf .tear-h{left:0;top:0;width:100%;height:108px;border-radius:0;background:none;box-shadow:none;cursor:grab}
+.tk-perf .tear-h::before,.tk-perf .tear-h::after,.tk-perf .tear-h.off{display:none}
+.tear-h .tl{display:none}
+.sp-swipe{display:block;margin-top:2px;font-size:13px;font-weight:800;color:var(--ok);letter-spacing:.04em}
