@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=70"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=71"></head>
 <body class="st-none"><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=70"></script><script src="common.js?v=70"></script>
+<script src="firebase-config.js?v=71"></script><script src="common.js?v=71"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -138,6 +138,14 @@ function viewIssue() {
     `<button class="btn" id="issue" ${busy ? 'disabled' : ''}>${busy ? '発行しています…' : people > 2 ? `整理券を${splitPeople(people).length}枚発行する` : '整理券を発行する'}</button>`);
 }
 
+// 目安：「約○分後（○:○○ごろ）」。時刻は券に書いたまま動かさず、「○分後」は今の時刻から数え直す
+function etaStr() {
+  const li = line(), idx = li.indexOf(me.number), ahead = idx >= 0 ? idx : li.filter(n => n < me.number).length, nowMs = Date.now();
+  const chain = etaChain(li, me.etaAt ? { ...sum.pe, [me.number]: me.etaAt } : sum.pe, cfg, sum.avgGapSec, nowMs);
+  const etaMs = Math.ceil((idx >= 0 ? chain[me.number] : nowMs + waitMin(ahead + 1) * 60000) / 60000) * 60000;
+  return `約${Math.max(1, Math.round((etaMs - nowMs) / 60000))}分後（${fmtHM(new Date(etaMs))}ごろ）`;
+}
+setInterval(() => { if (me && me.status === 'waiting') document.querySelectorAll('.etaTxt').forEach(e => { e.textContent = etaStr(); }); }, 10000);
 function viewTicket() {
   const li = line(), idx = li.indexOf(me.number);
   const ahead = idx >= 0 ? idx : li.filter(n => n < me.number).length;
@@ -164,8 +172,7 @@ function viewTicket() {
 
   // 順番待ち（発行したときから、チケットの形で表示する）
   const soon = ahead <= SOON_AHEAD;
-  const nowMs = Date.now(), chain = etaChain(li, me.etaAt ? { ...sum.pe, [me.number]: me.etaAt } : sum.pe, cfg, sum.avgGapSec, nowMs), etaMs = Math.ceil((idx >= 0 ? chain[me.number] : nowMs + waitMin(ahead + 1) * 60000) / 60000) * 60000;
-  const etaM = Math.max(1, Math.round((etaMs - nowMs) / 60000)), eta = `約${etaM}分後（${fmtHM(new Date(etaMs))}ごろ）`;
+  const eta = `<span class="etaTxt">${etaStr()}</span>`;
   const aheadTxt = `あと${ahead + 1}<span class="h1">組</span>`; // あと1組＝次に呼ばれる
   const info = `<div class="tk-eta"><div class="huge" style="font-size:clamp(44px,14vw,64px)">${aheadTxt}</div><div class="p">${showWait() ? `目安：${eta}` : 'この画面でお待ちください'}</div></div>`;
   const top = (soon ? '<div class="h1 c" style="font-size:clamp(22px,6.4vw,30px)">会場の近くでお待ちください</div>' : '')
