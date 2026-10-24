@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=66"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=67"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -23,7 +23,7 @@
     <div id="stopNote"></div><div id="reports"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v66</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v67</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -110,7 +110,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=66"></script><script src="common.js?v=66"></script>
+<script src="firebase-config.js?v=67"></script><script src="common.js?v=67"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -212,6 +212,8 @@ const act = {
   absent: t => txRun(t.id, ['waiting', 'called'], cur => ({ status: 'absent', absentAt: Date.now(), absentBy: 'staff', absentFrom: cur.status }), `${nm(t)}を欠席にしました`),
   // 入室済みにしたのを取り消して、呼び出し中に戻す
   reopen: t => txRun(t.id, ['inroom', 'guided'], () => ({ status: 'called', enteredAt: del(), torn: del(), seenAt: del() }), `${nm(t)}を呼び出し中に戻しました`),
+  // 呼び出し中の組を、順番待ちに戻す（もとの順番の位置に戻る。お客さんの画面も順番待ちに戻る）
+  uncall: t => txRun(t.id, ['called'], () => ({ status: 'waiting', calledAt: del(), seenAt: del(), skipped: del(), skippedAt: del() }), `${nm(t)}を順番待ちに戻しました`),
   // 順番を指定して呼ぶ
   call: t => txRun(t.id, ['waiting'], () => ({ status: 'called', calledAt: Date.now(), seenAt: del() }), `${nm(t)}を呼び出しました`),
   // 欠席にした券を、呼び出し中に戻す（お客さんの画面は「待機室へお越しください」に戻る）
@@ -422,7 +424,7 @@ function renderSheet() {
   const hold = `<button class="sbtn" data-hold="absent" data-id="${t.id}" style="user-select:none;-webkit-user-select:none;-webkit-touch-callout:none">欠席にする（長押し）</button>`;
   const b = (a, text, cls, dis) => `<button class="sbtn ${cls || ''}" data-a="${a}" data-id="${t.id}" ${dis ? 'disabled' : ''}>${text}</button>`;
   let btns = '';
-  if (t.status === 'called') btns = b('enter', '入室済みにする', 'btn-ok big') + hold;
+  if (t.status === 'called') btns = b('enter', '入室済みにする', 'btn-ok big') + b('uncall', '順番待ちに戻す') + hold;
   else if (t.status === 'waiting' && t.queue) btns = b('enterw', '入室済みにする', 'btn-ok big') + hold;
   else if (t.status === 'waiting') btns = b('call', '今すぐ呼ぶ', 'btn-ok big') + b('first', '先頭にする', '', first && first.id === t.id) + b('back', '後ろへ回す') + hold;
   else if (isDone(t) && t.walkin) btns = b('delwalk', 'この記録を削除する', 'btn-bad');
