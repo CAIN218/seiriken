@@ -67,6 +67,7 @@ function buildSummary(list, cfg) {
     waitCount: list.filter(isActive).length,
     roomCount: list.filter(inRoom).length,
     called: list.filter(inRoom).sort((a, b) => calledAtOf(a) - calledAtOf(b)).map(t => t.number), // 呼び出し中の番号（モニター用。呼んだ順）
+    pe: list.filter(t => inLine(t) && t.etaAt).reduce((o, t) => (o[t.number] = t.etaAt, o), {}), // 発券した時に書いた時刻（番号→時刻）。後ろの組の時刻がこれにぶつからないよう、お客さん画面も読む
     avgGapSec: gaps.length >= 2 ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null,
     cfg: pickCfg(cfg)
   };
@@ -121,6 +122,14 @@ const dmUnread = t => { const m = dmLastStaff(t); return !!m && !dmList(t).some(
 const dmCustUnread = t => { const m = dmLastCust(t); return !!m && m.at > (t.dmReadAt || 0); };                  // スタッフ：お客さんの最後のメッセージを、まだ読んでいない
 // 待ち時間の目安（今から○分）。n組ぶん待つとして、10分以上は5分きざみ
 const waitMinutes = (n, c, avg) => { const m = n * gapSecOf(c, avg) / 60; return m >= 10 ? Math.round(m / 5) * 5 : Math.max(1, Math.round(m)); };
+// 順番待ちの各組の時刻。発券した時に書いた時刻（紙・電子とも）はそのまま動かさず、その後ろの組は「前の組の時刻＋1組ぶん」より早くならないようにする
+// （1組の間隔を変えたとき、紙の券と電子整理券の時刻が近づいて、人が一度に来てしまうのを防ぐ）
+// 書いた時刻が過ぎていたら、いまの順番から計算し直す
+const etaChain = (nums, pe, c, avg, now) => {
+  const g = gapSecOf(c, avg) * 1000, o = {}; let prev = now;
+  nums.forEach((n, i) => { const e = pe && pe[n] > now ? pe[n] : Math.max(now + (i + 1) * g, prev + g); o[n] = e; prev = e; });
+  return o;
+};
 let lastErr = { code: '', at: 0 }; // 直前の失敗のコード（受付への連絡に添える）
 function errText(op, e) {
   const k = causeKey(e), c = CAUSES[k], raw = k === 'X0' && e ? ':' + (e.code || e.message || '').toString().slice(0, 40) : '';

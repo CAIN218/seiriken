@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=60"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=65"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -23,7 +23,7 @@
     <div id="stopNote"></div><div id="reports"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v60</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v65</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -110,7 +110,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=60"></script><script src="common.js?v=60"></script>
+<script src="firebase-config.js?v=65"></script><script src="common.js?v=65"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -262,13 +262,15 @@ function render() {
 
   // 受付とのメッセージの状態：お客さんから未読は赤、送った分は「未読／既読」
   const dmTag = t => dmCustUnread(t) ? '<span class="ack bad">返信あり</span>' : (dmLastStaff(t) ? `<span class="ack ${t.dmSeenAt >= dmLastStaff(t).at ? 'ok' : 'no'}">連絡：${t.dmSeenAt >= dmLastStaff(t).at ? '既読' : '未読'}</span>` : '');
+  // 予想時刻：お客さんの整理券に書いてある時刻と同じ計算（etaChain）
+  const etaOf = (() => { if (waitModeOf(cfg) === 'off') return () => ''; const sm = buildSummary(list), ch = etaChain(line.map(t => t.number), sm.pe, cfg, sm.avgGapSec, Date.now()); return t => ch[t.number] && !t.queue ? new Date(Math.ceil(ch[t.number] / 60000) * 60000).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'ごろ' : ''; })();
   const rowHtml = (t, i) => {
     const called = t.status === 'called';
     const pill = called ? '呼び出し中' : (i === 0 ? '次の順番' : '順番待ち');
     const right = called ? (t.paper ? `<button class="mini ok" data-a="enter" data-id="${t.id}">入室済みにする</button>` : '') : t.queue ? `<button class="mini ok" data-a="enterw" data-id="${t.id}">入室済み</button>` : `<span class="dh" data-drag="${t.id}" aria-label="長押ししてドラッグで並べ替え">≡</span>`;
     const ack = called && !t.paper ? (t.seenAt ? `<span class="ack ok">届いた ${fmtT(t.seenAt)}</span>` : '<span class="ack no" hidden>未確認</span>') : '';
     return `<div class="row ${t.status}${t.paper ? ' paperrow' : ''}" data-id="${t.id}" data-since="${(called ? t.calledAt : t.createdAt) || ''}" data-kind="${called ? 'call' : 'wait'}" data-late="${called ? 1 : 0}">
-      <div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span><span class="el"></span>${ack}${dmTag(t)}${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
+      <div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill ${t.status}">${pill}</span>${!called && etaOf(t) ? `<span class="etax">来る時刻 ${etaOf(t)}</span>` : ''}<span class="el"></span>${ack}${dmTag(t)}${called ? '<span class="ask">欠席にしますか？</span>' : ''}</div></div>${right}</div></div>`;
   };
   const doneHtml = t => `<div class="row inroom${t.paper ? ' paperrow' : ''}" data-id="${t.id}"><div class="rtop"><div class="num">${nl(t)}</div><div class="rmid"><div class="who">${label(t)}</div><div class="rsub"><span class="pill inroom">${t.torn ? '入室済み（もぎり）' : '入室済み'}</span><span class="el" style="font-size:14px">${fmtT(t.enteredAt)}</span></div></div></div></div>`;
   $('lists').innerHTML = `<div class="grid">
@@ -540,13 +542,20 @@ document.addEventListener('pointercancel', e => endDrag(e, true));
 
 /* ---------- スマホなしの方の発券（紙） ---------- */
 const pf = { name: '', people: 1, err: '', busy: false, result: null };
+// 紙の券の目安：「今から○分」は5分きざみにせず、列の最後尾（いま並んでいる組の数ぶん）で出す。
+// 1組の間隔を変えても、すでに渡した紙の時刻より早くならないようにする（人が一度にどっと来るのを防ぐ）
+function paperEta() {
+  const now = Date.now(), nums = list.filter(inLine).sort(byOrder).map(t => t.number).concat(-1), sm = buildSummary(list);
+  const gapMs = gapSecOf(cfg, sm.avgGapSec) * 1000, ms = Math.ceil(etaChain(nums, sm.pe, cfg, sm.avgGapSec, now)[-1] / 60000) * 60000, d = new Date(ms);
+  return { ms, gapMs, min: Math.max(1, Math.round((ms - now) / 60000)), at: `${d.getHours()}時${String(d.getMinutes()).padStart(2, '0')}分` };
+}
 function renderPaper() {
   if (pf.result) {
     const r = pf.result;
     $('pBody').innerHTML = `<div class="box c" style="text-align:center"><div style="font-weight:800;color:#5a6378">整理券の番号</div>
       ${r.items.map(it => `<div class="pnum" ${r.items.length > 1 ? 'style="font-size:min(26vw,120px)"' : ''}>${it.n}<small style="font-size:18px;color:#5a6378;font-weight:800"> ${it.people}名</small></div>`).join('')}
-      ${r.min ? `<div class="peta">目安 約${r.min}分後<br>（${r.at}ごろ）</div>` : ''}<div style="color:#5a6378;margin-top:6px">${esc(r.name)} さん　${r.people}名</div></div>
-      <div class="ho" style="margin:0 4px 8px">番号と目安（○分後・時刻）を、カードに書き写してお渡しください${r.items.length > 1 ? `（${r.items.length}枚）` : ''}。</div>
+      ${r.min ? `<div class="peta">${r.at}ごろに<br>受付へお越しください<small style="display:block;font-size:15px;color:#5a6378">（約${r.min}分後）</small></div>` : ''}<div style="color:#5a6378;margin-top:6px">${esc(r.name)} さん　${r.people}名</div></div>
+      <div class="ho" style="margin:0 4px 8px">番号と時刻を、カードに書き写してお渡しください${r.items.length > 1 ? `（${r.items.length}枚）` : ''}。</div>
       <button id="pNext" class="full btn-main" style="min-height:60px;font-size:20px">続けて発券する</button>`;
     $('pNext').onclick = () => { pf.result = null; pf.name = ''; pf.people = 1; renderPaper(); setTimeout(() => $('pName') && $('pName').focus(), 50); };
     return;
@@ -568,7 +577,7 @@ async function issuePaper() {
   if (!name) { pf.err = 'ニックネームを入力してください'; renderPaper(); return; }
   if (pf.busy) return; pf.busy = true; pf.err = ''; renderPaper();
   const ref = counter(), parts = splitPeople(pf.people), refs = parts.map(() => db.collection('tickets').doc());
-  const ahead = list.filter(inLine).length, people = pf.people;
+  const people = pf.people, eta = paperEta(), off = waitModeOf(cfg) === 'off';
   let n0 = 0, grp = null;
   try {
     await db.runTransaction(async tx => {
@@ -577,10 +586,9 @@ async function issuePaper() {
       n0 = c.exists ? c.data().last || 0 : 0;
       const g0 = c.exists ? c.data().gLast || 0 : 0; grp = parts.length > 1 ? grpLetter(g0) : null;
       tx.set(ref, parts.length > 1 ? { last: n0 + parts.length, gLast: g0 + 1 } : { last: n0 + parts.length }, { merge: true });
-      parts.forEach((p, i) => tx.set(refs[i], { day: today(), number: n0 + 1 + i, name, people: p, status: 'waiting', createdAt: Date.now(), paper: true, ...(grp ? { grp } : {}) }));
+      parts.forEach((p, i) => tx.set(refs[i], { day: today(), number: n0 + 1 + i, name, people: p, status: 'waiting', createdAt: Date.now(), paper: true, ...(off ? {} : { etaAt: eta.ms + i * eta.gapMs }), ...(grp ? { grp } : {}) }));
     });
-    const paperEta = n => { const m = waitModeOf(cfg) === 'off' ? 0 : waitMinutes(n, cfg, buildSummary(list).avgGapSec); const d = new Date(Date.now() + m * 60000); return { min: m, at: `${d.getHours()}時${String(d.getMinutes()).padStart(2, '0')}分` }; };
-    pf.result = { items: parts.map((p, i) => ({ n: n0 + 1 + i + (grp ? '-' + grp : ''), people: p })), name, people, ...paperEta(ahead + 1) };
+    pf.result = { items: parts.map((p, i) => ({ n: n0 + 1 + i + (grp ? '-' + grp : ''), people: p })), name, people, min: eta.min, at: eta.at };
   } catch (e) {
     pf.err = errText('PP', e);
   }
