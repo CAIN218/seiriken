@@ -67,7 +67,8 @@ function buildSummary(list, cfg) {
     waitCount: list.filter(isActive).length,
     roomCount: list.filter(inRoom).length,
     called: list.filter(inRoom).sort((a, b) => calledAtOf(a) - calledAtOf(b)).map(t => t.number), // 呼び出し中の番号（モニター用。呼んだ順）
-    pe: list.filter(t => inLine(t) && t.etaAt).reduce((o, t) => (o[t.number] = t.etaAt, o), {}), // 発券した時に書いた時刻（番号→時刻）。後ろの組の時刻がこれにぶつからないよう、お客さん画面も読む
+    pe: list.filter(t => inLine(t) && t.paper && t.etaAt).reduce((o, t) => (o[t.number] = t.etaAt, o), {}), // 紙に書いた時刻（番号→時刻）。紙は書き換えられないので、動かさない
+    gp: list.filter(t => inLine(t) && t.gapSec > 0).reduce((o, t) => (o[t.number] = t.gapSec, o), {}), // 手入力の間隔（1組○分）で発券した券の、発券した時の間隔（番号→秒）。間隔を変えても、新しい券からだけ新しい値にするため
     avgGapSec: gaps.length >= 2 ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null,
     cfg: pickCfg(cfg)
   };
@@ -122,12 +123,13 @@ const dmUnread = t => { const m = dmLastStaff(t); return !!m && !dmList(t).some(
 const dmCustUnread = t => { const m = dmLastCust(t); return !!m && m.at > (t.dmReadAt || 0); };                  // スタッフ：お客さんの最後のメッセージを、まだ読んでいない
 // 待ち時間の目安（今から○分）。n組ぶん待つとして、10分以上は5分きざみ
 const waitMinutes = (n, c, avg) => { const m = n * gapSecOf(c, avg) / 60; return m >= 10 ? Math.round(m / 5) * 5 : Math.max(1, Math.round(m)); };
-// 順番待ちの各組の時刻。発券した時に書いた時刻（紙・電子とも）はそのまま動かさず、その後ろの組は「前の組の時刻＋1組ぶん」より早くならないようにする
-// （1組の間隔を変えたとき、紙の券と電子整理券の時刻が近づいて、人が一度に来てしまうのを防ぐ）
-// 書いた時刻が過ぎていたら、いまの順番から計算し直す
-const etaChain = (nums, pe, c, avg, now) => {
-  const g = gapSecOf(c, avg) * 1000, o = {}; let prev = now;
-  nums.forEach((n, i) => { const e = pe && pe[n] > now ? pe[n] : Math.max(now + (i + 1) * g, prev + g); o[n] = e; prev = e; });
+// 順番待ちの各組の時刻。呼び出しの進み具合と今の時刻から、いつも計算し直す。
+// ・「1組○分」の手入力で発券した券は、発券した時の間隔のまま（あとで間隔を変えても、新しい券からだけ新しい間隔）
+// ・紙の券は、紙に書いた時刻のまま動かさない（過ぎたら計算し直す）
+// ・どの組も、前の組の時刻＋1組ぶんより早くならない（人が一度に来てしまうのを防ぐ）
+const etaChain = (nums, pe, gp, c, avg, now) => {
+  const g0 = gapSecOf(c, avg) * 1000, o = {}; let prev = now;
+  nums.forEach((n, i) => { const g = gp && gp[n] > 0 ? gp[n] * 1000 : g0, e = pe && pe[n] > now ? pe[n] : Math.max(now + (i + 1) * g, prev + g); o[n] = e; prev = e; });
   return o;
 };
 let lastErr = { code: '', at: 0 }; // 直前の失敗のコード（受付への連絡に添える）
