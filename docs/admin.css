@@ -266,3 +266,5 @@ h2{border-left:0;padding-left:4px;font-size:14px;color:var(--sub)}
 .bub.me{margin-left:auto;text-align:right}.bub.me .bt{background:var(--accent);color:#fff;border-bottom-right-radius:4px;text-align:left}
 .unp{font-style:normal;font-size:12px;font-weight:900;background:var(--bad);color:#fff;border-radius:99px;padding:1px 10px;margin-left:8px}
 .ack.bad{color:var(--bad)}
+
+.rsub .etax{font-weight:800;font-size:14px;color:var(--sub);white-space:nowrap}
