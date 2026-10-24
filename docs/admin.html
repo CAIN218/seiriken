@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=61"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=62"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -23,7 +23,7 @@
     <div id="stopNote"></div><div id="reports"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v61</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v62</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -110,7 +110,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=61"></script><script src="common.js?v=61"></script>
+<script src="firebase-config.js?v=62"></script><script src="common.js?v=62"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -559,8 +559,8 @@ function renderPaper() {
     $('pNext').onclick = () => { pf.result = null; pf.name = ''; pf.people = 1; renderPaper(); setTimeout(() => $('pName') && $('pName').focus(), 50); };
     return;
   }
-  const parts = splitPeople(pf.people), pe = waitModeOf(cfg) === 'off' ? null : paperEta();
-  $('pBody').innerHTML = `${pe ? `<div class="ho" style="margin:0 4px 8px;font-weight:800">いま発券すると：${pe.at}ごろ（約${pe.min}分後）</div>` : ''}<div class="box"><div style="font-weight:800">ニックネーム（12文字まで）</div>
+  const parts = splitPeople(pf.people);
+  $('pBody').innerHTML = `<div class="box"><div style="font-weight:800">ニックネーム（12文字まで）</div>
       <input id="pName" type="text" maxlength="12" placeholder="例：たろう" value="${esc(pf.name)}" autocomplete="off">
       <div style="font-weight:800;margin-top:8px">人数</div>
       <div class="pseg"><button data-pd="-1" aria-label="1人減らす" ${pf.people <= 1 ? 'disabled' : ''}>−</button><div class="pn">${pf.people}<small>人</small></div><button data-pd="1" aria-label="1人増やす" ${pf.people >= 8 ? 'disabled' : ''}>＋</button></div>
