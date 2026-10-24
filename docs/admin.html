@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=62"></head>
+<title>整理券 スタッフ</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="admin.css?v=63"></head>
 <body>
 <div id="login" class="login" hidden><div class="box">
   <h3>スタッフ用ログイン</h3>
@@ -23,7 +23,7 @@
     <div id="stopNote"></div><div id="reports"></div>
   </div></div>
   <div class="wrap" id="lists"></div>
-  <p style="text-align:center;color:#8a93a6;font-size:13px">v62</p>
+  <p style="text-align:center;color:#8a93a6;font-size:13px">v63</p>
 </div>
 
 <div id="toast" class="toast" hidden></div>
@@ -110,7 +110,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=62"></script><script src="common.js?v=62"></script>
+<script src="firebase-config.js?v=63"></script><script src="common.js?v=63"></script>
 <script>
 const auth = firebase.auth();
 const $ = id => document.getElementById(id);
@@ -543,9 +543,8 @@ const pf = { name: '', people: 1, err: '', busy: false, result: null };
 // 紙の券の目安：「今から○分」は5分きざみにせず、列の最後尾（いま並んでいる組の数ぶん）で出す。
 // 1組の間隔を変えても、すでに渡した紙の時刻より早くならないようにする（人が一度にどっと来るのを防ぐ）
 function paperEta() {
-  const gapMs = gapSecOf(cfg, buildSummary(list).avgGapSec) * 1000, now = Date.now();
-  const inL = list.filter(inLine), last = Math.max(0, ...inL.map(t => t.etaAt || 0));
-  const ms = Math.ceil(Math.max(now + (inL.length + 1) * gapMs, last ? last + gapMs : 0) / 60000) * 60000, d = new Date(ms);
+  const now = Date.now(), nums = list.filter(inLine).sort(byOrder).map(t => t.number).concat(-1), sm = buildSummary(list);
+  const gapMs = gapSecOf(cfg, sm.avgGapSec) * 1000, ms = Math.ceil(etaChain(nums, sm.pe, cfg, sm.avgGapSec, now)[-1] / 60000) * 60000, d = new Date(ms);
   return { ms, gapMs, min: Math.max(1, Math.round((ms - now) / 60000)), at: `${d.getHours()}時${String(d.getMinutes()).padStart(2, '0')}分` };
 }
 function renderPaper() {
