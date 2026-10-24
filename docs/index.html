@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=65"></head>
+<title>整理券</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#3a7d6e"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap"><link rel="stylesheet" href="customer.css?v=66"></head>
 <body class="st-none"><div id="net" role="status" hidden></div><div id="app"><div class="scr"><p class="c small">読み込み中…</p></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=65"></script><script src="common.js?v=65"></script>
+<script src="firebase-config.js?v=66"></script><script src="common.js?v=66"></script>
 <script>
 const KEY = 'seiriken-' + today();
 const TEST = /[?&]test=1/.test(location.search);
@@ -167,7 +167,7 @@ function viewTicket() {
   const nowMs = Date.now(), chain = etaChain(li, me.etaAt ? { ...sum.pe, [me.number]: me.etaAt } : sum.pe, cfg, sum.avgGapSec, nowMs), etaMs = Math.ceil((idx >= 0 ? chain[me.number] : nowMs + waitMin(ahead + 1) * 60000) / 60000) * 60000;
   const etaM = Math.max(1, Math.round((etaMs - nowMs) / 60000)), eta = `約${etaM}分後（${fmtHM(new Date(etaMs))}ごろ）`;
   const aheadTxt = `あと${ahead + 1}<span class="h1">組</span>`; // あと1組＝次に呼ばれる
-  const info = `<div class="tk-eta"><div class="huge" style="font-size:clamp(44px,14vw,64px)">${aheadTxt}</div><div class="p">${soon ? 'まもなくお呼びします' : showWait() ? `目安：${eta}` : 'この画面でお待ちください'}</div></div>`;
+  const info = `<div class="tk-eta"><div class="huge" style="font-size:clamp(44px,14vw,64px)">${aheadTxt}</div><div class="p">${showWait() ? `目安：${eta}` : 'この画面でお待ちください'}</div></div>`;
   const top = (soon ? '<div class="h1 c" style="font-size:clamp(22px,6.4vw,30px)">会場の近くでお待ちください</div>' : '')
     + `<div class="tk wait">${body(info)}${perf(false)}<div class="tk-stub">${stubHtml(false)}</div></div>`
     + (soon ? '' : `<div class="card p">${showWait() ? eta + 'に、会場へお戻りください。' : ''}この画面を開いたままお待ちください。順番が来ると表示が変わりますので、呼ばれたら受付へお越しください。</div>`);
